@@ -271,6 +271,33 @@ Keep the analysis practical and actionable for a business owner.`;
     }
   });
 
+  // Customer Notifications (Email/SMS)
+  app.post("/api/notifications/send", async (req, res) => {
+    try {
+      const { orderId, type } = req.body;
+
+      if (!orderId || !type) {
+        return res.status(400).json({ message: "Order ID and notification type required" });
+      }
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Email/SMS integration would go here
+      // For now, return a message indicating the feature needs setup
+      const message = type === "email" 
+        ? "Email notifications require Resend or SendGrid API keys. Set up in integrations."
+        : "SMS notifications require Twilio API keys (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER).";
+
+      // Placeholder for future email/SMS integration
+      res.status(503).json({ message });
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to send notification: " + error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

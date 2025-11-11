@@ -6,8 +6,12 @@ import {
   type OrderItem,
   type InsertOrderItem,
   type AnalyticsData,
+  products,
+  orders,
+  orderItems,
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Products
@@ -32,130 +36,111 @@ export interface IStorage {
   getAnalytics(): Promise<AnalyticsData>;
 }
 
-export class MemStorage implements IStorage {
-  private products: Map<string, Product>;
-  private orders: Map<string, Order>;
-  private orderItems: Map<string, OrderItem>;
-
-  constructor() {
-    this.products = new Map();
-    this.orders = new Map();
-    this.orderItems = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   // Products
   async getProducts(): Promise<Product[]> {
-    return Array.from(this.products.values());
+    return db.select().from(products);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
-    return this.products.get(id);
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product || undefined;
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const id = randomUUID();
-    const product: Product = {
-      ...insertProduct,
-      id,
-      views: 0,
-      sales: 0,
-      createdAt: new Date(),
-    };
-    this.products.set(id, product);
+    const [product] = await db
+      .insert(products)
+      .values(insertProduct)
+      .returning();
     return product;
   }
 
   async updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product | undefined> {
-    const product = this.products.get(id);
-    if (!product) return undefined;
-
-    const updatedProduct = { ...product, ...updates };
-    this.products.set(id, updatedProduct);
-    return updatedProduct;
+    const [product] = await db
+      .update(products)
+      .set(updates)
+      .where(eq(products.id, id))
+      .returning();
+    return product || undefined;
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    return this.products.delete(id);
+    const result = await db.delete(products).where(eq(products.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   async incrementProductViews(id: string): Promise<void> {
-    const product = this.products.get(id);
-    if (product) {
-      product.views += 1;
-      this.products.set(id, product);
-    }
+    await db
+      .update(products)
+      .set({ views: sql`${products.views} + 1` })
+      .where(eq(products.id, id));
   }
 
   // Orders
   async getOrders(): Promise<Order[]> {
-    return Array.from(this.orders.values()).sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return db.select().from(orders).orderBy(desc(orders.createdAt));
   }
 
   async getOrder(id: string): Promise<Order | undefined> {
-    return this.orders.get(id);
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    return order || undefined;
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
-    const id = randomUUID();
-    const order: Order = {
-      ...insertOrder,
-      id,
-      status: "pending",
-      createdAt: new Date(),
-    };
-    this.orders.set(id, order);
+    const [order] = await db
+      .insert(orders)
+      .values(insertOrder)
+      .returning();
     return order;
   }
 
   async updateOrder(id: string, updates: Partial<Order>): Promise<Order | undefined> {
-    const order = this.orders.get(id);
-    if (!order) return undefined;
-
-    const updatedOrder = { ...order, ...updates };
-    this.orders.set(id, updatedOrder);
-    return updatedOrder;
+    const [order] = await db
+      .update(orders)
+      .set(updates)
+      .where(eq(orders.id, id))
+      .returning();
+    return order || undefined;
   }
 
   // Order Items
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
-    return Array.from(this.orderItems.values()).filter(
-      (item) => item.orderId === orderId
-    );
+    return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
   }
 
   async createOrderItem(insertItem: InsertOrderItem): Promise<OrderItem> {
-    const id = randomUUID();
-    const item: OrderItem = { ...insertItem, id };
-    this.orderItems.set(id, item);
+    const [item] = await db
+      .insert(orderItems)
+      .values(insertItem)
+      .returning();
 
     // Update product sales and stock
-    const product = this.products.get(insertItem.productId);
-    if (product) {
-      product.sales += insertItem.quantity;
-      product.stock = Math.max(0, product.stock - insertItem.quantity);
-      this.products.set(product.id, product);
-    }
+    await db
+      .update(products)
+      .set({
+        sales: sql`${products.sales} + ${insertItem.quantity}`,
+        stock: sql`GREATEST(0, ${products.stock} - ${insertItem.quantity})`,
+      })
+      .where(eq(products.id, insertItem.productId));
 
     return item;
   }
 
   // Analytics
   async getAnalytics(): Promise<AnalyticsData> {
-    const products = Array.from(this.products.values());
-    const orders = Array.from(this.orders.values());
+    const allProducts = await db.select().from(products);
+    const allOrders = await db.select().from(orders);
 
-    const totalRevenue = orders.reduce((sum, order) => {
+    const totalRevenue = allOrders.reduce((sum, order) => {
       return sum + parseFloat(order.total.toString());
     }, 0);
 
-    const totalOrders = orders.length;
-    const totalViews = products.reduce((sum, p) => sum + p.views, 0);
-    const totalSales = products.reduce((sum, p) => sum + p.sales, 0);
+    const totalOrders = allOrders.length;
+    const totalViews = allProducts.reduce((sum, p) => sum + p.views, 0);
+    const totalSales = allProducts.reduce((sum, p) => sum + p.sales, 0);
     const conversionRate = totalViews > 0 ? (totalSales / totalViews) * 100 : 0;
 
-    const topProducts = products
+    const topProducts = allProducts
       .filter((p) => p.sales > 0 || p.views > 0)
       .map((p) => ({
         id: p.id,
@@ -177,4 +162,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

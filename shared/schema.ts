@@ -26,6 +26,11 @@ export const orders = pgTable("orders", {
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("pending"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
+  trackingNumber: text("tracking_number"),
+  shippingProvider: text("shipping_provider"),
+  estimatedDelivery: text("estimated_delivery"),
+  shippingNotes: text("shipping_notes"),
+  notificationsSent: boolean("notifications_sent").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

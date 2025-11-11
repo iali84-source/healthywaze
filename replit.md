@@ -11,15 +11,15 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 - **Shopping Cart**: Persistent cart with localStorage, quantity management
 - **Guest Checkout**: Frictionless checkout flow without account requirements
 - **Stripe Integration**: Secure payment processing with Stripe Elements
-- **Order Tracking**: Order confirmation with unique order IDs
+- **Order Tracking**: Customer-facing page to track orders with visual progress timeline
 - **Mobile-First Design**: Fully responsive across all devices
 
 ### Admin Dashboard
 - **Analytics Dashboard**: Real-time metrics (revenue, orders, views, conversion rates)
 - **Product Management**: CRUD operations with AI-powered description generation
-- **Order Management**: View and update order statuses
+- **Order Management**: Enhanced interface with shipping tracking, customer notifications
 - **Advanced Analytics**: Detailed performance metrics with AI insights
-- **Comprehensive Tutorial**: Step-by-step guide for using all AI features
+- **Comprehensive Tutorial**: Complete guide including product research, dropshipping, shipping management
 
 ### AI-Powered Features
 1. **AI Description Generator** (OpenAI GPT-5)
@@ -43,7 +43,9 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 - **Low Stock Alerts**: Visual badges when stock is low (≤5 items)
 - **Persistent Cart**: Cart saved in browser localStorage
 - **One-Click Publishing**: Toggle product visibility without deletion
-- **SMS Notifications Ready**: Integration guide for Twilio (optional)
+- **Shipping Management**: Add tracking numbers, shipping providers, delivery estimates
+- **Customer Notifications**: Email and SMS notification system (requires API keys)
+- **Permanent Data Storage**: PostgreSQL database ensures data persists across restarts
 
 ## Technology Stack
 
@@ -57,7 +59,7 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 
 ### Backend
 - Express.js
-- In-memory storage (MemStorage)
+- PostgreSQL with Drizzle ORM (permanent data storage)
 - Stripe API (payments)
 - OpenAI API (AI features)
 - Google Analytics 4 (tracking)
@@ -66,7 +68,8 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 - **Stripe**: Payment processing
 - **OpenAI GPT-5**: AI-powered content and insights
 - **Google Analytics 4**: User behavior tracking
-- **Twilio** (optional): SMS notifications
+- **Email Services** (optional): Resend or SendGrid for order notifications
+- **Twilio** (optional): SMS notifications for order updates
 
 ## Project Structure
 
