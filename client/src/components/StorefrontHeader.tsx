@@ -16,13 +16,11 @@ export function StorefrontHeader({ cartItemCount, onCartClick, searchQuery, onSe
     <header className="sticky top-0 z-50 w-full border-b bg-background">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between gap-4">
-          <Link href="/">
-            <a className="flex items-center gap-2 hover-elevate rounded-md px-3 py-2" data-testid="link-home">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <span className="text-sm font-bold">SA</span>
-              </div>
-              <span className="hidden text-lg font-bold sm:inline">ShopAI</span>
-            </a>
+          <Link href="/" className="flex items-center gap-2 hover-elevate rounded-md px-3 py-2" data-testid="link-home">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <span className="text-sm font-bold">SA</span>
+            </div>
+            <span className="hidden text-lg font-bold sm:inline">ShopAI</span>
           </Link>
 
           <div className="flex flex-1 items-center justify-center px-4">
