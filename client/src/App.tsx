@@ -10,6 +10,7 @@ import Home from "@/pages/Home";
 import ProductDetail from "@/pages/ProductDetail";
 import Checkout from "@/pages/Checkout";
 import OrderConfirmation from "@/pages/OrderConfirmation";
+import TrackOrder from "@/pages/TrackOrder";
 import Dashboard from "@/pages/admin/Dashboard";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
@@ -28,6 +29,7 @@ function StorefrontRouter() {
       <Route path="/product/:id" component={ProductDetail} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/order-confirmation" component={OrderConfirmation} />
+      <Route path="/track-order" component={TrackOrder} />
       <Route component={NotFound} />
     </Switch>
   );
