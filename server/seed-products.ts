@@ -118,10 +118,8 @@ async function seedProducts() {
   try {
     console.log("Starting to seed products...");
     
-    for (const product of demoProducts) {
-      await db.insert(products).values(product);
-      console.log(`✓ Added: ${product.name}`);
-    }
+    await db.insert(products).values(demoProducts);
+    console.log(`✓ Added ${demoProducts.length} products`);
     
     console.log("\n✅ Successfully seeded all products!");
     process.exit(0);
