@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertOrderSchema } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema } from "@shared/schema";
 import Stripe from "stripe";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -246,6 +246,29 @@ Keep the analysis practical and actionable for a business owner.`;
     } catch (error: any) {
       console.error("OpenAI error:", error);
       res.status(500).json({ message: "Failed to analyze performance: " + error.message });
+    }
+  });
+
+  // Site Settings
+  app.get("/api/site-settings", async (req, res) => {
+    try {
+      const settings = await storage.getSiteSettings();
+      res.json(settings);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/site-settings", async (req, res) => {
+    try {
+      const validated = insertSiteSettingsSchema.partial().parse(req.body);
+      const settings = await storage.updateSiteSettings(validated);
+      res.json(settings);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
     }
   });
 
