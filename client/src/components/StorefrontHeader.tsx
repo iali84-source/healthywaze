@@ -1,4 +1,4 @@
-import { ShoppingCart, Search } from "lucide-react";
+import { ShoppingCart, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
@@ -38,6 +38,17 @@ export function StorefrontHeader({ cartItemCount, onCartClick, searchQuery, onSe
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/admin">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+                data-testid="button-admin"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
