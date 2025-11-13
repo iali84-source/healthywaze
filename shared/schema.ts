@@ -43,6 +43,21 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
 });
 
+export const siteSettings = pgTable("site_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  promoBannerEnabled: boolean("promo_banner_enabled").notNull().default(true),
+  promoBannerText: text("promo_banner_text").notNull().default("Free Shipping on Orders Over $75 | 30-Day Money-Back Guarantee"),
+  heroHeadline: text("hero_headline").notNull().default("Your Wellness Journey\nMade Simple"),
+  heroSubheadline: text("hero_subheadline").notNull().default("Powerful products to help you stay energized, focused, and on track"),
+  heroButtonText: text("hero_button_text").notNull().default("Shop Now"),
+  trustBadgeEnabled: boolean("trust_badge_enabled").notNull().default(true),
+  trustBadgeText: text("trust_badge_text").notNull().default("13,000+ Happy Customers"),
+  benefitOneText: text("benefit_one_text").notNull().default("Feel Amazing"),
+  benefitTwoText: text("benefit_two_text").notNull().default("Stay Energized"),
+  benefitThreeText: text("benefit_three_text").notNull().default("Live Better"),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
@@ -60,12 +75,19 @@ export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
   id: true,
 });
 
+export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
+export type InsertSiteSettings = z.infer<typeof insertSiteSettingsSchema>;
+export type SiteSettings = typeof siteSettings.$inferSelect;
 
 export interface CartItem {
   productId: string;
