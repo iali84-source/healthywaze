@@ -16,6 +16,7 @@ import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
 import Analytics from "@/pages/admin/Analytics";
 import Tutorial from "@/pages/admin/Tutorial";
+import SiteSettings from "@/pages/admin/SiteSettings";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
@@ -44,6 +45,7 @@ function AdminRouter() {
       <Route path="/admin/products" component={Products} />
       <Route path="/admin/orders" component={Orders} />
       <Route path="/admin/analytics" component={Analytics} />
+      <Route path="/admin/settings" component={SiteSettings} />
       <Route path="/admin/tutorial" component={Tutorial} />
       <Route component={NotFound} />
     </Switch>
