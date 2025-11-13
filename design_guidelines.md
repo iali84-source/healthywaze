@@ -14,10 +14,11 @@
 ## Typography
 
 **Font System:** Inter (headings & UI) + System fonts (body)
-- Product titles: 20px/600 (desktop), 18px/600 (mobile)
+- Product titles: 18px/600 (more readable)
 - Prices: 24px/700 for primary, 18px/400 for original/strikethrough
 - Body text: 15px/400, line-height 1.6
-- Button text: 14px/600, uppercase tracking
+- Button text: 14px/600
+- Category tags: 13px/500
 - Admin dashboard headers: 28px/700
 - Metric numbers: 32px/700
 
@@ -72,14 +73,33 @@
 
 ## Images
 
-**Hero Section:** NO - E-commerce sites dive straight into product catalog  
 **Product Images:** 
 - Required for all product cards and detail pages
-- Consistent 4:5 aspect ratio for grid uniformity
+- Consistent 4:5 aspect ratio for grid uniformity (maintained)
 - High-quality, white/neutral backgrounds preferred
+- Hover: Subtle zoom effect for engagement
 - Detail page: Multiple angles, zoomable on hover/tap
 
 **Placeholders:** Use solid neutral backgrounds with camera icon for products without images
+
+## Visual Enhancements (Faire-Inspired)
+
+**Improved Spacing**
+- More generous gaps between products: gap-8 (up from gap-6)
+- Better card padding for breathing room
+- Cleaner visual separation
+
+**Interactive Polish**
+- Subtle hover lift on product cards
+- Smooth image zoom on hover (scale-105)
+- Category badges for quick filtering
+- Enhanced shadow on card hover
+
+**Better Visual Hierarchy**
+- Clearer category organization
+- Prominent pricing display
+- Stock urgency messaging
+- Featured product highlighting
 
 ## Trust & Conversion Elements
 - Security badges near payment form (lock icon + "Secure checkout")
