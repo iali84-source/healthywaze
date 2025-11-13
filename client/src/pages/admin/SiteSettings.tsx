@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Loader2, Save, Settings } from "lucide-react";
+import { useEffect } from "react";
 
 export default function SiteSettings() {
   const { toast } = useToast();
@@ -21,7 +22,7 @@ export default function SiteSettings() {
 
   const form = useForm({
     resolver: zodResolver(insertSiteSettingsSchema),
-    values: settings || {
+    defaultValues: {
       promoBannerEnabled: true,
       promoBannerText: "Free Shipping on Orders Over $75 | 30-Day Money-Back Guarantee",
       heroHeadline: "Your Wellness Journey\nMade Simple",
@@ -35,13 +36,15 @@ export default function SiteSettings() {
     },
   });
 
+  useEffect(() => {
+    if (settings) {
+      form.reset(settings);
+    }
+  }, [settings, form]);
+
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<SiteSettings>) => {
-      return apiRequest("/api/site-settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", "/api/site-settings", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/site-settings"] });
