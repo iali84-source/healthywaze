@@ -185,12 +185,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSiteSettings(updates: Partial<InsertSiteSettings>): Promise<SiteSettings> {
-    // Get existing settings to get the ID
+    // Get existing settings to merge with updates
     const existingSettings = await this.getSiteSettings();
+    
+    // Remove undefined values from updates to prevent NULL clobbering
+    const cleanedUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined)
+    );
+    
+    // Merge with existing settings to ensure all fields have values
+    const { id, createdAt, updatedAt, ...existingData } = existingSettings;
+    const mergedData = { ...existingData, ...cleanedUpdates };
     
     const [updated] = await db
       .update(siteSettings)
-      .set({ ...updates, updatedAt: sql`now()` })
+      .set({ ...mergedData, updatedAt: sql`now()` })
       .where(eq(siteSettings.id, existingSettings.id))
       .returning();
     
