@@ -5,10 +5,13 @@ import {
   type InsertOrder,
   type OrderItem,
   type InsertOrderItem,
+  type SiteSettings,
+  type InsertSiteSettings,
   type AnalyticsData,
   products,
   orders,
   orderItems,
+  siteSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -34,6 +37,10 @@ export interface IStorage {
 
   // Analytics
   getAnalytics(): Promise<AnalyticsData>;
+
+  // Site Settings
+  getSiteSettings(): Promise<SiteSettings>;
+  updateSiteSettings(updates: Partial<InsertSiteSettings>): Promise<SiteSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -159,6 +166,35 @@ export class DatabaseStorage implements IStorage {
       conversionRate,
       topProducts,
     };
+  }
+
+  // Site Settings
+  async getSiteSettings(): Promise<SiteSettings> {
+    const [settings] = await db.select().from(siteSettings).limit(1);
+    
+    // If no settings exist, create default settings
+    if (!settings) {
+      const [newSettings] = await db
+        .insert(siteSettings)
+        .values({})
+        .returning();
+      return newSettings;
+    }
+    
+    return settings;
+  }
+
+  async updateSiteSettings(updates: Partial<InsertSiteSettings>): Promise<SiteSettings> {
+    // Get existing settings to get the ID
+    const existingSettings = await this.getSiteSettings();
+    
+    const [updated] = await db
+      .update(siteSettings)
+      .set({ ...updates, updatedAt: sql`now()` })
+      .where(eq(siteSettings.id, existingSettings.id))
+      .returning();
+    
+    return updated;
   }
 }
 
