@@ -5,6 +5,7 @@ import {
   BarChart3,
   GraduationCap,
   Store,
+  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +39,11 @@ const adminItems = [
     title: "Analytics",
     url: "/admin/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Site Settings",
+    url: "/admin/settings",
+    icon: Settings,
   },
   {
     title: "AI Tutorial",
