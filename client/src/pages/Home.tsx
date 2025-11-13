@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { PromoBanner } from "@/components/PromoBanner";
 import { StorefrontHeader } from "@/components/StorefrontHeader";
+import { HeroSection } from "@/components/HeroSection";
 import { ProductCard } from "@/components/ProductCard";
 import { CartDrawer } from "@/components/CartDrawer";
 import { Button } from "@/components/ui/button";
@@ -95,6 +97,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <PromoBanner />
       <StorefrontHeader
         cartItemCount={cartItemCount}
         onCartClick={() => setCartOpen(true)}
@@ -102,32 +105,53 @@ export default function Home() {
         onSearchChange={setSearchQuery}
       />
 
-      <main className="container mx-auto px-4 py-10">
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-            Discover Your Wellness Journey
-          </h1>
-          <p className="mt-3 text-lg text-muted-foreground">
-            Premium products curated for a healthier, happier lifestyle
+      <HeroSection />
+
+      <main className="container mx-auto px-4 py-16">
+        <div className="mb-12">
+          <h2 className="text-3xl font-bold tracking-tight text-center mb-3">
+            Shop by Category
+          </h2>
+          <p className="text-center text-muted-foreground mb-10">
+            Discover products tailored to your wellness goals
           </p>
+
+          {categories.length > 1 && (
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5 mb-16">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`group relative overflow-hidden rounded-xl border-2 p-6 text-center transition-all hover-elevate ${
+                    selectedCategory === category
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                  data-testid={`button-category-${category}`}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                      selectedCategory === category
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted group-hover:bg-primary/10"
+                    } transition-colors`}>
+                      <span className="text-xl font-bold">
+                        {category.charAt(0)}
+                      </span>
+                    </div>
+                    <span className="font-semibold">{category}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {categories.length > 1 && (
-          <div className="mb-8 flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(category)}
-                className="rounded-full"
-                data-testid={`button-category-${category}`}
-              >
-                {category}
-              </Button>
-            ))}
-          </div>
-        )}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold tracking-tight mb-6">
+            {selectedCategory === "All" ? "All Products" : selectedCategory}
+          </h2>
+        </div>
 
         {isLoading ? (
           <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
