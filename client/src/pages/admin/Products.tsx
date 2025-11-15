@@ -33,6 +33,8 @@ import { z } from "zod";
 const formSchema = insertProductSchema.extend({
   price: z.string().min(1, "Price is required"),
   stock: z.number().min(0, "Stock cannot be negative"),
+  adSpend: z.string().optional(),
+  productCost: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -57,6 +59,8 @@ export default function Products() {
       stock: 0,
       isPublished: true,
       category: "",
+      adSpend: "0",
+      productCost: "0",
     },
   });
 
@@ -132,6 +136,8 @@ export default function Products() {
       stock: product.stock,
       isPublished: product.isPublished,
       category: product.category || "",
+      adSpend: product.adSpend || "0",
+      productCost: product.productCost || "0",
     });
     setDialogOpen(true);
   };
@@ -232,7 +238,7 @@ export default function Products() {
                     name="price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price *</FormLabel>
+                        <FormLabel>Selling Price *</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
@@ -248,6 +254,30 @@ export default function Products() {
 
                   <FormField
                     control={form.control}
+                    name="productCost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product Cost</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            data-testid="input-product-cost"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          What you pay your supplier
+                        </p>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
                     name="stock"
                     render={({ field }) => (
                       <FormItem>
@@ -261,6 +291,28 @@ export default function Products() {
                           />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="adSpend"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ad Spend (Total)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            data-testid="input-ad-spend"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          Total spent on Google Ads
+                        </p>
                       </FormItem>
                     )}
                   />
