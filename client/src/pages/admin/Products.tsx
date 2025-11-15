@@ -25,7 +25,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Sparkles, Loader2, Upload, FileSpreadsheet } from "lucide-react";
+import { Plus, Pencil, Sparkles, Loader2, Upload, FileSpreadsheet, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product } from "@shared/schema";
@@ -139,6 +150,30 @@ export default function Products() {
     },
   });
 
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      const productsToDelete = products;
+      for (const product of productsToDelete) {
+        await apiRequest("DELETE", `/api/products/${product.id}`, {});
+      }
+      return productsToDelete.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "All products deleted",
+        description: `Successfully deleted ${count} products`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete products",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleGenerateDescription = async () => {
     const name = form.getValues("name");
     if (!name) {
@@ -228,6 +263,36 @@ export default function Products() {
           </p>
         </div>
         <div className="flex gap-2">
+          {products.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" data-testid="button-delete-all">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete All Products
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all {products.length} products from your catalog.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteAllMutation.mutate()}
+                    disabled={deleteAllMutation.isPending}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleteAllMutation.isPending ? "Deleting..." : "Delete All Products"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          
           <Dialog open={importDialogOpen} onOpenChange={handleImportDialogClose}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-import-excel">
