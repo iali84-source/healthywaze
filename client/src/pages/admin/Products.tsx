@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -24,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Pencil, Sparkles, Loader2, Upload, FileSpreadsheet } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product } from "@shared/schema";
@@ -42,8 +43,12 @@ type FormValues = z.infer<typeof formSchema>;
 export default function Products() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [generatingDescription, setGeneratingDescription] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importResults, setImportResults] = useState<any>(null);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -97,6 +102,40 @@ export default function Products() {
       apiRequest("PATCH", `/api/products/${id}`, { isPublished }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    },
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/products/import', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Import failed');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      setImportResults(data);
+      toast({
+        title: "Import complete!",
+        description: `${data.imported.length} products imported successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -156,22 +195,152 @@ export default function Products() {
     form.reset();
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setImportResults(null);
+    }
+  };
+
+  const handleImport = () => {
+    if (selectedFile) {
+      importMutation.mutate(selectedFile);
+    }
+  };
+
+  const handleImportDialogClose = () => {
+    setImportDialogOpen(false);
+    setSelectedFile(null);
+    setImportResults(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold">Products</h1>
           <p className="mt-2 text-muted-foreground">
             Manage your product catalog
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-product">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Dialog open={importDialogOpen} onOpenChange={handleImportDialogClose}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-import-excel">
+                <Upload className="mr-2 h-4 w-4" />
+                Import from Excel
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Import Products from Excel</DialogTitle>
+                <DialogDescription>
+                  Upload an Excel file (.xlsx, .xls) with your product catalog
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  <FileSpreadsheet className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.ods,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="excel-upload"
+                    data-testid="input-excel-file"
+                  />
+                  <label htmlFor="excel-upload">
+                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} data-testid="button-choose-file">
+                      Choose Excel File
+                    </Button>
+                  </label>
+                  {selectedFile && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Selected: {selectedFile.name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
+                  <p className="font-semibold">Expected columns:</p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                    <li>Name (required)</li>
+                    <li>Description (required)</li>
+                    <li>Price (required)</li>
+                    <li>Cost / Product Cost (optional)</li>
+                    <li>Image / Image URL / Link (optional)</li>
+                    <li>Stock / Inventory (optional)</li>
+                    <li>Category (optional)</li>
+                    <li>Ad Spend (optional)</li>
+                  </ul>
+                  <p className="text-xs mt-2">
+                    💡 Tip: Column names are flexible - we'll match common variations automatically
+                  </p>
+                </div>
+
+                {importResults && (
+                  <div className="space-y-2">
+                    <div className="bg-primary/10 border border-primary rounded-lg p-4">
+                      <p className="font-semibold text-primary">
+                        ✅ {importResults.imported.length} products imported successfully
+                      </p>
+                    </div>
+                    {importResults.failed.length > 0 && (
+                      <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
+                        <p className="font-semibold text-destructive mb-2">
+                          ❌ {importResults.failed.length} products failed
+                        </p>
+                        <div className="text-sm space-y-1 max-h-40 overflow-y-auto">
+                          {importResults.failed.slice(0, 5).map((fail: any, i: number) => (
+                            <p key={i} className="text-muted-foreground">
+                              Row {fail.row}: {fail.error}
+                            </p>
+                          ))}
+                          {importResults.failed.length > 5 && (
+                            <p className="text-muted-foreground italic">
+                              ...and {importResults.failed.length - 5} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={handleImport}
+                  disabled={!selectedFile || importMutation.isPending}
+                  data-testid="button-start-import"
+                >
+                  {importMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Import Products
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-product">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -381,6 +550,7 @@ export default function Products() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {isLoading ? (
