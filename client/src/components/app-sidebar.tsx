@@ -68,17 +68,18 @@ export function AppSidebar() {
             </div>
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-2">
               {adminItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
                     isActive={location === item.url}
                     data-testid={`link-${item.title.toLowerCase().replace(" ", "-")}`}
+                    className="h-11 text-base"
                   >
                     <Link href={item.url}>
-                      <a>
-                        <item.icon />
+                      <a className="flex items-center gap-3 w-full">
+                        <item.icon className="h-5 w-5" />
                         <span>{item.title}</span>
                       </a>
                     </Link>
@@ -89,15 +90,15 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
+        <SidebarGroup className="mt-4">
           <SidebarGroupLabel>Storefront</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-2">
               <SidebarMenuItem>
-                <SidebarMenuButton asChild data-testid="link-view-store">
+                <SidebarMenuButton asChild data-testid="link-view-store" className="h-11 text-base">
                   <Link href="/">
-                    <a>
-                      <Store />
+                    <a className="flex items-center gap-3 w-full">
+                      <Store className="h-5 w-5" />
                       <span>View Store</span>
                     </a>
                   </Link>
