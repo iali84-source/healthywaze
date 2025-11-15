@@ -183,15 +183,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
-      // Convert to JSON
-      const rawData: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      // Parse headers explicitly to filter out unnamed columns
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      const headers: { original: string; normalized: string }[] = [];
+      
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+        const cell = worksheet[cellAddress];
+        const headerValue = cell ? String(cell.v || '').trim() : '';
+        
+        // Skip unnamed/empty columns
+        if (headerValue && headerValue !== '') {
+          const normalized = headerValue
+            .toLowerCase()
+            .replace(/[^\w\s.]/g, '') // Remove punctuation except dots and underscores
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          headers.push({ original: headerValue, normalized });
+        }
+      }
+      
+      console.log(`📋 Detected ${headers.length} titled columns:`, headers.map(h => h.original).join(', '));
+      
+      // Convert to JSON with header filtering
+      const rawData: any[] = XLSX.utils.sheet_to_json(worksheet, { 
+        defval: "",
+        raw: false // Get formatted strings
+      });
       
       if (rawData.length === 0) {
         return res.status(400).json({ message: "Excel file is empty" });
       }
 
-      console.log(`📝 Found ${rawData.length} rows in Excel file`);
-      console.log(`📋 Sample row:`, rawData[0]);
+      console.log(`📝 Found ${rawData.length} data rows`);
+
+      // Helper to normalize column names for flexible matching
+      const normalizeKey = (key: string): string => {
+        return String(key || '')
+          .toLowerCase()
+          .replace(/[^\w\s.]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
 
       const results = {
         imported: [] as any[],
@@ -204,12 +238,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rowNumber = i + 2; // +2 because Excel is 1-indexed and has header row
 
         try {
-          // Flexible column mapping - handles various common column names
-          const getColumnValue = (possibleNames: string[]) => {
+          // Create normalized key mapping for this row (ignore __EMPTY and unnamed columns)
+          const normalizedRow: Record<string, any> = {};
+          Object.keys(row).forEach(key => {
+            if (!key.startsWith('__EMPTY')) {
+              const normalized = normalizeKey(key);
+              if (normalized) {
+                normalizedRow[normalized] = row[key];
+              }
+            }
+          });
+
+          // Flexible column lookup with normalized keys
+          const getColumnValue = (possibleNames: string[]): string => {
             for (const name of possibleNames) {
-              const value = row[name];
-              if (value !== undefined && value !== null && value !== "") {
-                return value;
+              const normalizedName = normalizeKey(name);
+              const value = normalizedRow[normalizedName];
+              if (value !== undefined && value !== null && String(value).trim() !== "") {
+                return String(value).trim();
               }
             }
             return "";
@@ -217,45 +263,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Build product name from brand + product + size if available
           const brand = getColumnValue(['brand', 'Brand']);
-          const productName = getColumnValue(['product', 'Product', 'Name', 'Product Name', 'Title', 'name', 'product_name']);
+          const productName = getColumnValue(['product', 'Product', 'Name', 'Product Name', 'Title']);
           const size = getColumnValue(['size', 'Size']);
           
           const fullName = [brand, productName, size]
-            .filter(v => v && v.toString().trim())
+            .filter(v => v && v.trim())
             .join(' ')
             .trim() || productName;
 
+          // Validate required fields with helpful error messages
+          if (!fullName) {
+            throw new Error("Product name is required - need 'brand', 'product', 'size' or 'name' column");
+          }
+
+          const description = getColumnValue(['descriptions', 'description', 'desc', 'details']);
+          if (!description) {
+            throw new Error("Description is required - need 'descriptions' or 'description' column");
+          }
+
+          const priceValue = getColumnValue([
+            'healthywaze.com',
+            'healthywazecom',
+            'healthywaze price',
+            'price',
+            'retail price',
+            'selling price',
+            'unit price'
+          ]);
+          if (!priceValue || parseFloat(priceValue) <= 0) {
+            throw new Error("Valid price is required - need 'healthywaze.com' or 'price' column with value > 0");
+          }
+
           // Get first available image from primary or fallback columns
           const imageUrl = getColumnValue([
-            'image address primary', 'Image Address Primary',
-            'image 2', 'Image 2',
-            'image 3', 'Image 3', 
-            'image 4', 'Image 4',
-            'Image', 'Image URL', 'Photo', 'image', 'image_url', 'link'
+            'image address primary',
+            'image 2',
+            'image 3', 
+            'image 4',
+            'image',
+            'image url',
+            'photo',
+            'link'
           ]);
 
           const productData = {
             name: fullName,
-            description: getColumnValue(['descriptions', 'Description', 'Desc', 'Details', 'description', 'desc']) || 'Premium quality product',
-            price: String(getColumnValue(['healthywaze.com', 'Price', 'Retail Price', 'Selling Price', 'price', 'retail_price']) || "0"),
-            productCost: String(getColumnValue(['cost', 'Cost', 'Product Cost', 'Cost Per Item', 'Supplier Cost', 'product_cost']) || "0"),
+            description: description,
+            price: priceValue,
+            productCost: String(getColumnValue(['cost', 'product cost', 'cost per item', 'supplier cost']) || "0"),
             imageUrl: imageUrl,
-            stock: Number(getColumnValue(['Stock', 'Inventory', 'Quantity', 'Qty', 'stock', 'inventory']) || 100),
-            category: getColumnValue(['brand', 'Brand', 'Category', 'Type', 'category', 'type']),
-            adSpend: String(getColumnValue(['Ad Spend', 'Ads', 'Marketing Cost', 'ad_spend', 'ads']) || "0"),
+            stock: Number(getColumnValue(['stock', 'inventory', 'quantity', 'qty']) || 100),
+            category: getColumnValue(['brand', 'category', 'type']),
+            adSpend: String(getColumnValue(['ad spend', 'ads', 'marketing cost']) || "0"),
             isPublished: true,
           };
-
-          // Validate required fields
-          if (!productData.name) {
-            throw new Error("Product name is required");
-          }
-          if (!productData.description) {
-            throw new Error("Description is required");
-          }
-          if (!productData.price || parseFloat(productData.price) <= 0) {
-            throw new Error("Valid price is required");
-          }
 
           // Create product
           const validated = insertProductSchema.parse(productData);
