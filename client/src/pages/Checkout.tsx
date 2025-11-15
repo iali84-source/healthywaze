@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CheckoutTrustIndicators } from "@/components/TrustBadges";
+import { FreeShippingBar } from "@/components/ConversionBoosters";
 import { ArrowLeft, Lock, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type { CartItem } from "@shared/schema";
@@ -307,6 +308,7 @@ export default function Checkout() {
                 <CardTitle className="text-lg sm:text-xl">Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4">
+                <FreeShippingBar currentTotal={subtotal} threshold={50} />
                 {cartItems.map((item) => (
                   <div key={item.productId} className="flex justify-between gap-2">
                     <span className="text-xs sm:text-sm">
