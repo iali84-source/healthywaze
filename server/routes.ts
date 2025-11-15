@@ -5,6 +5,8 @@ import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, type 
 import Stripe from "stripe";
 import OpenAI from "openai";
 import { z } from "zod";
+import multer from "multer";
+import * as XLSX from "xlsx";
 
 // Reference for Stripe integration from blueprint:javascript_stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -16,6 +18,26 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
+
+// Configure multer for Excel file uploads (in-memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.oasis.opendocument.spreadsheet',
+    ];
+    if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls|ods)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files (.xlsx, .xls, .ods) are allowed'));
+    }
+  },
+});
 
 // DROPSHIPPING AUTOMATION: Send order details to supplier
 async function sendOrderToSupplier(order: Order, items: OrderItem[]): Promise<void> {
@@ -140,6 +162,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Excel Import endpoint
+  app.post("/api/products/import", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      console.log(`📊 Processing Excel import: ${req.file.originalname}`);
+      
+      // Parse Excel file from buffer
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Convert to JSON
+      const rawData: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      
+      if (rawData.length === 0) {
+        return res.status(400).json({ message: "Excel file is empty" });
+      }
+
+      console.log(`📝 Found ${rawData.length} rows in Excel file`);
+      console.log(`📋 Sample row:`, rawData[0]);
+
+      const results = {
+        imported: [] as any[],
+        failed: [] as { row: number; error: string; data: any }[],
+      };
+
+      // Process each row
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        const rowNumber = i + 2; // +2 because Excel is 1-indexed and has header row
+
+        try {
+          // Flexible column mapping - handles various common column names
+          const getColumnValue = (possibleNames: string[]) => {
+            for (const name of possibleNames) {
+              const value = row[name];
+              if (value !== undefined && value !== null && value !== "") {
+                return value;
+              }
+            }
+            return "";
+          };
+
+          const productData = {
+            name: getColumnValue(['Name', 'Product Name', 'Product', 'Title', 'name', 'product_name']),
+            description: getColumnValue(['Description', 'Desc', 'Details', 'description', 'desc']),
+            price: String(getColumnValue(['Price', 'Retail Price', 'Selling Price', 'price', 'retail_price']) || "0"),
+            productCost: String(getColumnValue(['Cost', 'Product Cost', 'Cost Per Item', 'Supplier Cost', 'cost', 'product_cost']) || "0"),
+            imageUrl: getColumnValue(['Image', 'Image URL', 'Photo', 'Link', 'URL', 'image', 'image_url', 'link']),
+            stock: Number(getColumnValue(['Stock', 'Inventory', 'Quantity', 'Qty', 'stock', 'inventory']) || 0),
+            category: getColumnValue(['Category', 'Type', 'category', 'type']),
+            adSpend: String(getColumnValue(['Ad Spend', 'Ads', 'Marketing Cost', 'ad_spend', 'ads']) || "0"),
+            isPublished: true,
+          };
+
+          // Validate required fields
+          if (!productData.name) {
+            throw new Error("Product name is required");
+          }
+          if (!productData.description) {
+            throw new Error("Description is required");
+          }
+          if (!productData.price || parseFloat(productData.price) <= 0) {
+            throw new Error("Valid price is required");
+          }
+
+          // Create product
+          const validated = insertProductSchema.parse(productData);
+          const product = await storage.createProduct(validated);
+          
+          results.imported.push({
+            row: rowNumber,
+            name: product.name,
+            id: product.id,
+          });
+
+          console.log(`✅ Row ${rowNumber}: ${product.name}`);
+
+        } catch (error: any) {
+          results.failed.push({
+            row: rowNumber,
+            error: error.message,
+            data: row,
+          });
+          console.log(`❌ Row ${rowNumber}: ${error.message}`);
+        }
+      }
+
+      console.log(`\n📊 Import Summary:`);
+      console.log(`✅ Imported: ${results.imported.length}`);
+      console.log(`❌ Failed: ${results.failed.length}`);
+
+      res.json({
+        message: `Import complete: ${results.imported.length} products imported, ${results.failed.length} failed`,
+        ...results,
+      });
+
+    } catch (error: any) {
+      console.error("Excel import error:", error);
+      res.status(500).json({ 
+        message: "Failed to import Excel file: " + error.message,
+        error: error.message,
+      });
     }
   });
 
