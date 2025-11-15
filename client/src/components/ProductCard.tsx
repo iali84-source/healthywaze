@@ -53,38 +53,39 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         </div>
       </Link>
 
-      <CardContent className="p-5">
+      <CardContent className="p-3 sm:p-4 md:p-5">
         <Link href={`/product/${product.id}`}>
           <h3
-            className="line-clamp-2 text-lg font-semibold leading-snug transition-colors hover:text-primary"
+            className="line-clamp-2 text-sm sm:text-base md:text-lg font-semibold leading-snug transition-colors hover:text-primary"
             data-testid={`text-product-name-${product.id}`}
           >
             {product.name}
           </h3>
         </Link>
         
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-2xl font-bold" data-testid={`text-price-${product.id}`}>
+        <div className="mt-2 sm:mt-3 flex items-center justify-between gap-2">
+          <span className="text-lg sm:text-xl md:text-2xl font-bold" data-testid={`text-price-${product.id}`}>
             ${price.toFixed(2)}
           </span>
           {product.stock <= 5 && product.stock > 0 && (
-            <span className="text-xs font-medium text-destructive">
+            <span className="text-[10px] sm:text-xs font-medium text-destructive">
               Only {product.stock} left!
             </span>
           )}
         </div>
       </CardContent>
 
-      <CardFooter className="p-5 pt-0">
+      <CardFooter className="p-3 sm:p-4 md:p-5 pt-0">
         <Button
-          className="w-full"
-          size="default"
+          className="w-full text-xs sm:text-sm"
+          size="sm"
           onClick={() => onAddToCart(product)}
           disabled={!inStock}
           data-testid={`button-add-to-cart-${product.id}`}
         >
-          <ShoppingCart className="mr-2 h-4 w-4" />
-          Add to Cart
+          <ShoppingCart className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="hidden xs:inline">Add to Cart</span>
+          <span className="xs:hidden">Add</span>
         </Button>
       </CardFooter>
     </Card>

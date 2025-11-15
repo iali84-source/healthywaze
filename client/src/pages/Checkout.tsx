@@ -279,44 +279,44 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-8">
-      <div className="container mx-auto max-w-4xl px-4">
+    <div className="min-h-screen bg-background py-4 sm:py-6 md:py-8">
+      <div className="container mx-auto max-w-4xl px-3 sm:px-4">
         <Link href="/">
           <a>
-            <Button variant="ghost" className="mb-6" data-testid="button-back">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Continue shopping
+            <Button variant="ghost" size="sm" className="mb-4 sm:mb-6" data-testid="button-back">
+              <ArrowLeft className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-sm">Continue shopping</span>
             </Button>
           </a>
         </Link>
 
-        <h1 className="mb-8 text-3xl font-bold">Checkout</h1>
+        <h1 className="mb-6 sm:mb-8 text-2xl sm:text-3xl font-bold">Checkout</h1>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2 order-2 lg:order-1">
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <CheckoutForm cartItems={cartItems} onSuccess={handleSuccess} />
             </Elements>
           </div>
 
-          <div>
+          <div className="order-1 lg:order-2">
             <Card>
               <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Order Summary</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 {cartItems.map((item) => (
                   <div key={item.productId} className="flex justify-between gap-2">
-                    <span className="text-sm">
+                    <span className="text-xs sm:text-sm">
                       {item.quantity}x {item.name}
                     </span>
-                    <span className="text-sm font-medium">
+                    <span className="text-xs sm:text-sm font-medium">
                       ${(parseFloat(item.price) * item.quantity).toFixed(2)}
                     </span>
                   </div>
                 ))}
                 <Separator />
-                <div className="flex justify-between text-lg font-bold">
+                <div className="flex justify-between text-base sm:text-lg font-bold">
                   <span>Total</span>
                   <span data-testid="text-order-total">${subtotal.toFixed(2)}</span>
                 </div>

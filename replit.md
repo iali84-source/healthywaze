@@ -89,10 +89,11 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 │   │   │   ├── OrderConfirmation.tsx
 │   │   │   └── admin/
 │   │   │       ├── Dashboard.tsx
-│   │   │       ├── Products.tsx  # AI description generator
+│   │   │       ├── Products.tsx     # AI description generator
 │   │   │       ├── Orders.tsx
-│   │   │       ├── Analytics.tsx # AI insights
-│   │   │       └── Tutorial.tsx  # Comprehensive guide
+│   │   │       ├── Analytics.tsx    # AI insights
+│   │   │       ├── SiteSettings.tsx # Storefront customization
+│   │   │       └── Tutorial.tsx     # Comprehensive guide
 │   │   ├── lib/
 │   │   │   ├── queryClient.ts
 │   │   │   └── analytics.ts     # Google Analytics
@@ -146,6 +147,13 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 ### CartItem (Frontend only)
 - productId, name, price, quantity, imageUrl
 
+### SiteSettings (Singleton)
+- id, promoBannerEnabled, promoBannerText
+- heroHeadline, heroSubheadline, heroButtonText
+- trustBadgeEnabled, trustBadgeText
+- benefitOneText, benefitTwoText, benefitThreeText
+- createdAt, updatedAt
+
 ## API Endpoints (To be implemented in Task 2)
 
 ### Products
@@ -170,6 +178,10 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 
 ### Payments
 - `POST /api/create-payment-intent` - Create Stripe payment intent
+
+### Site Settings
+- `GET /api/site-settings` - Get current site settings
+- `PATCH /api/site-settings` - Update site settings (partial updates supported)
 
 ## Key User Flows
 
@@ -230,6 +242,28 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 - **Enhanced Layout**: Improved spacing, visual hierarchy, and mobile responsiveness
 - **Conversion Focus**: Added clear CTAs and value propositions throughout homepage
 - All changes architect-reviewed and approved without functionality regression
+
+✅ Site Settings Feature - COMPLETED (Nov 15, 2025)
+- **Admin Site Settings Page**: User-friendly interface for non-technical users to customize all storefront elements
+- **Database Schema**: Singleton `siteSettings` table with auto-seeding of default values
+- **Customizable Elements**: Promo banner text/visibility, hero headline/subheadline/button, trust badge, benefit messages
+- **API Endpoints**: GET and PATCH endpoints with partial update support (no NULL clobbering)
+- **Real-time Updates**: Changes appear instantly on storefront after saving
+- **Bug Fixes**: Resolved React Hook Form issues, proper apiRequest signature, storage layer merge logic
+- All features architect-reviewed and production-ready
+
+✅ Mobile-First Optimization - COMPLETED (Nov 15, 2025)
+- **Responsive Header**: Optimized search bar, logo, and buttons for small screens (sm, md, lg breakpoints)
+- **Mobile Typography**: Scalable text sizes across all components (3xl→4xl→6xl progression)
+- **Adaptive Spacing**: Reduced padding and gaps on mobile (3px→4px→6px→8px scales)
+- **Product Grid**: Optimized from 2-col mobile to 3-col tablet to 4-col desktop
+- **Category Cards**: Tighter mobile layout (2-col) with responsive icon sizes
+- **Hero Section**: Mobile-optimized headline sizing, benefit icons, and CTA buttons
+- **Product Cards**: Responsive text, pricing, and button sizes with "Add" on mobile, "Add to Cart" on larger screens
+- **Product Detail**: Mobile-friendly image gallery, quantity controls, and add to cart button
+- **Checkout Page**: Order summary appears first on mobile, form fields optimized for touch
+- **Cart Drawer**: Touch-friendly quantity controls and item management
+- Fully tested and production-ready across all device sizes
 
 ⏳ Task 2: Backend - IN PROGRESS
 - API endpoints to be implemented
