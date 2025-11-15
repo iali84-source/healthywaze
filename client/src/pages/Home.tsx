@@ -107,39 +107,39 @@ export default function Home() {
 
       <HeroSection />
 
-      <main className="container mx-auto px-4 py-16">
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold tracking-tight text-center mb-3">
+      <main className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 md:py-16">
+        <div className="mb-8 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-center mb-2 sm:mb-3">
             Shop by Category
           </h2>
-          <p className="text-center text-muted-foreground mb-10">
+          <p className="text-center text-sm sm:text-base text-muted-foreground mb-6 sm:mb-10">
             Discover products tailored to your wellness goals
           </p>
 
           {categories.length > 1 && (
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5 mb-16">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 md:grid-cols-3 lg:grid-cols-5 mb-10 sm:mb-16">
               {categories.map((category) => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`group relative overflow-hidden rounded-xl border-2 p-6 text-center transition-all hover-elevate ${
+                  className={`group relative overflow-hidden rounded-lg sm:rounded-xl border-2 p-4 sm:p-6 text-center transition-all hover-elevate ${
                     selectedCategory === category
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50"
                   }`}
                   data-testid={`button-category-${category}`}
                 >
-                  <div className="flex flex-col items-center gap-2">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                  <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+                    <div className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full ${
                       selectedCategory === category
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted group-hover:bg-primary/10"
                     } transition-colors`}>
-                      <span className="text-xl font-bold">
+                      <span className="text-lg sm:text-xl font-bold">
                         {category.charAt(0)}
                       </span>
                     </div>
-                    <span className="font-semibold">{category}</span>
+                    <span className="text-xs sm:text-sm font-semibold">{category}</span>
                   </div>
                 </button>
               ))}
@@ -147,35 +147,35 @@ export default function Home() {
           )}
         </div>
 
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold tracking-tight mb-6">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-4 sm:mb-6">
             {selectedCategory === "All" ? "All Products" : selectedCategory}
           </h2>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8 md:grid-cols-3 lg:grid-cols-4">
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}
-                className="animate-pulse space-y-4"
+                className="animate-pulse space-y-3 sm:space-y-4"
                 data-testid={`skeleton-product-${i}`}
               >
                 <div className="aspect-[4/5] rounded-lg bg-muted" />
-                <div className="h-4 rounded bg-muted" />
-                <div className="h-4 w-2/3 rounded bg-muted" />
+                <div className="h-3 sm:h-4 rounded bg-muted" />
+                <div className="h-3 sm:h-4 w-2/3 rounded bg-muted" />
               </div>
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="flex min-h-[400px] flex-col items-center justify-center gap-3 text-center">
-            <p className="text-xl font-medium text-muted-foreground">No products found</p>
-            <p className="text-sm text-muted-foreground">
+          <div className="flex min-h-[300px] sm:min-h-[400px] flex-col items-center justify-center gap-2 sm:gap-3 text-center px-4">
+            <p className="text-lg sm:text-xl font-medium text-muted-foreground">No products found</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {searchQuery ? "Try a different search term" : "Check back soon for new arrivals"}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8 md:grid-cols-3 lg:grid-cols-4">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}

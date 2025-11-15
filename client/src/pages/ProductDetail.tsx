@@ -147,17 +147,17 @@ export default function ProductDetail() {
         onSearchChange={() => {}}
       />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         <Link href="/">
           <a>
-            <Button variant="ghost" className="mb-6" data-testid="button-back">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to products
+            <Button variant="ghost" size="sm" className="mb-4 sm:mb-6" data-testid="button-back">
+              <ArrowLeft className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-sm">Back to products</span>
             </Button>
           </a>
         </Link>
 
-        <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-2 lg:gap-12">
           <div className="overflow-hidden rounded-lg bg-muted">
             {product.imageUrl ? (
               <img
@@ -168,18 +168,18 @@ export default function ProductDetail() {
               />
             ) : (
               <div className="flex aspect-square items-center justify-center">
-                <Package className="h-32 w-32 text-muted-foreground" />
+                <Package className="h-24 w-24 sm:h-32 sm:w-32 text-muted-foreground" />
               </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 sm:gap-6">
             <div>
-              <h1 className="text-3xl font-bold lg:text-4xl" data-testid="text-product-name">
+              <h1 className="text-2xl sm:text-3xl font-bold lg:text-4xl" data-testid="text-product-name">
                 {product.name}
               </h1>
-              <div className="mt-4 flex items-baseline gap-4">
-                <span className="text-4xl font-bold" data-testid="text-price">
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-baseline gap-3 sm:gap-4">
+                <span className="text-3xl sm:text-4xl font-bold" data-testid="text-price">
                   ${price.toFixed(2)}
                 </span>
                 {!inStock && <Badge variant="secondary">Out of Stock</Badge>}
@@ -190,31 +190,33 @@ export default function ProductDetail() {
             </div>
 
             <div>
-              <h2 className="mb-2 text-lg font-semibold">Description</h2>
-              <p className="text-muted-foreground leading-relaxed" data-testid="text-description">
+              <h2 className="mb-2 text-base sm:text-lg font-semibold">Description</h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed" data-testid="text-description">
                 {product.description}
               </p>
             </div>
 
-            <div className="mt-auto space-y-4">
-              <div className="flex items-center gap-4">
-                <label className="font-medium">Quantity:</label>
+            <div className="mt-auto space-y-3 sm:space-y-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <label className="text-sm sm:text-base font-medium">Quantity:</label>
                 <div className="flex items-center gap-2 rounded-md border">
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-9 w-9"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
                     data-testid="button-decrease-quantity"
                   >
                     -
                   </Button>
-                  <span className="min-w-12 text-center" data-testid="text-quantity">
+                  <span className="min-w-10 sm:min-w-12 text-center text-sm sm:text-base" data-testid="text-quantity">
                     {quantity}
                   </span>
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-9 w-9"
                     onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
                     disabled={quantity >= product.stock}
                     data-testid="button-increase-quantity"
@@ -226,12 +228,12 @@ export default function ProductDetail() {
 
               <Button
                 size="lg"
-                className="w-full"
+                className="w-full text-sm sm:text-base"
                 disabled={!inStock}
                 onClick={handleAddToCart}
                 data-testid="button-add-to-cart"
               >
-                <ShoppingCart className="mr-2 h-5 w-5" />
+                <ShoppingCart className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 {inStock ? "Add to Cart" : "Out of Stock"}
               </Button>
             </div>
