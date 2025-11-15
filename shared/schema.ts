@@ -14,6 +14,8 @@ export const products = pgTable("products", {
   category: text("category"),
   views: integer("views").notNull().default(0),
   sales: integer("sales").notNull().default(0),
+  adSpend: decimal("ad_spend", { precision: 10, scale: 2 }).notNull().default("0"),
+  productCost: decimal("product_cost", { precision: 10, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -110,4 +112,22 @@ export interface AnalyticsData {
     views: number;
     conversionRate: number;
   }>;
+}
+
+export interface ProductTestingMetrics {
+  id: string;
+  name: string;
+  views: number;
+  sales: number;
+  revenue: number;
+  adSpend: number;
+  productCost: number;
+  profit: number;
+  roi: number;
+  roas: number;
+  cpa: number;
+  conversionRate: number;
+  profitMargin: number;
+  status: "winner" | "testing" | "loser" | "needs_data";
+  recommendation: string;
 }
