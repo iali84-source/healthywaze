@@ -561,7 +561,7 @@ export default function Products() {
                     <FormItem>
                       <FormLabel>Image URL</FormLabel>
                       <FormControl>
-                        <Input {...field} data-testid="input-product-image" />
+                        <Input {...field} value={field.value || ""} data-testid="input-product-image" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -575,7 +575,7 @@ export default function Products() {
                     <FormItem>
                       <FormLabel>Category</FormLabel>
                       <FormControl>
-                        <Input {...field} data-testid="input-product-category" />
+                        <Input {...field} value={field.value || ""} data-testid="input-product-category" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
