@@ -221,12 +221,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .join(' ')
             .trim() || productName;
 
+          // Get first available image from primary or fallback columns
+          const imageUrl = getColumnValue([
+            'image address primary', 'Image Address Primary',
+            'image 2', 'Image 2',
+            'image 3', 'Image 3', 
+            'image 4', 'Image 4',
+            'Image', 'Image URL', 'Photo', 'image', 'image_url', 'link'
+          ]);
+
           const productData = {
             name: fullName,
             description: getColumnValue(['descriptions', 'Description', 'Desc', 'Details', 'description', 'desc']) || 'Premium quality product',
             price: String(getColumnValue(['healthywaze.com', 'Price', 'Retail Price', 'Selling Price', 'price', 'retail_price']) || "0"),
             productCost: String(getColumnValue(['cost', 'Cost', 'Product Cost', 'Cost Per Item', 'Supplier Cost', 'product_cost']) || "0"),
-            imageUrl: getColumnValue(['image address primary', 'Image Address Primary', 'Image', 'Image URL', 'Photo', 'image', 'image_url', 'link']),
+            imageUrl: imageUrl,
             stock: Number(getColumnValue(['Stock', 'Inventory', 'Quantity', 'Qty', 'stock', 'inventory']) || 100),
             category: getColumnValue(['brand', 'Brand', 'Category', 'Type', 'category', 'type']),
             adSpend: String(getColumnValue(['Ad Spend', 'Ads', 'Marketing Cost', 'ad_spend', 'ads']) || "0"),
