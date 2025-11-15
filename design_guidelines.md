@@ -1,15 +1,37 @@
-# Design Guidelines: AI-Powered E-Commerce Platform
+# Design Guidelines: Health & Fitness E-Commerce Platform
 
 ## Design Approach
 
-**Selected System:** Shopify-inspired e-commerce patterns with Linear's clean admin aesthetic  
-**Rationale:** Utility-focused platform requiring efficient transactions and minimal operational overhead. Proven e-commerce patterns ensure customer trust while streamlined admin interface reduces daily management time.
+**Selected System:** Modern health & wellness e-commerce with vibrant, energetic design inspired by PureFormulas, Perfect Keto, and premium fitness brands  
+**Rationale:** Health and fitness consumers seek products that represent vitality, energy, and wellness. The design uses vibrant greens (health/nature), energetic oranges (energy/vitality), and inspiring imagery to create an aspirational shopping experience.
 
 **Core Principles:**
+- Energetic & Vibrant: Bold colors that represent health and vitality
+- Inspirational Imagery: Real fitness and wellness photography
 - Frictionless purchasing: Remove barriers to conversion
-- Operational clarity: Admin sees critical info at a glance
-- Mobile-first commerce: Majority of transactions happen on mobile
-- Trust through familiarity: Use established e-commerce patterns
+- Mobile-first commerce: Majority of health shoppers browse on mobile
+- Trust through wellness: Authentic imagery and transparent messaging
+
+## Color Palette
+
+**Primary Color: Vibrant Green** (HSL: 142, 76%, 36%)
+- Represents health, wellness, nature, growth
+- Used for: Primary buttons, links, active states, success messages
+- Creates association with natural health and vitality
+
+**Secondary Color: Energetic Orange** (HSL: 27, 96%, 61%)
+- Represents energy, enthusiasm, warmth, motivation
+- Used for: CTAs, highlights, energy-focused messaging
+- Conveys excitement and action
+
+**Accent Color: Refreshing Teal** (HSL: 187, 85%, 45%)
+- Represents freshness, clarity, hydration
+- Used for: Accent elements, wellness indicators
+- Adds variety to the color scheme
+
+**Gradient Promo Banner:** Green → Orange → Green
+- Eye-catching top banner for promotions
+- Creates energy and movement
 
 ## Typography
 
@@ -73,6 +95,12 @@
 
 ## Images
 
+**Hero Section Background:**
+- Large, inspiring fitness/wellness photography
+- Features active, healthy lifestyles
+- Dark gradient overlay for text readability
+- Subtle green/orange gradient wash for brand consistency
+
 **Product Images:** 
 - Required for all product cards and detail pages
 - Consistent 4:5 aspect ratio for grid uniformity (maintained)
@@ -80,9 +108,29 @@
 - Hover: Subtle zoom effect for engagement
 - Detail page: Multiple angles, zoomable on hover/tap
 
+**Wellness Imagery:**
+- Authentic fitness and health photography
+- Diverse, active individuals
+- Natural settings and healthy foods
+- Aspirational but achievable aesthetics
+
 **Placeholders:** Use solid neutral backgrounds with camera icon for products without images
 
-## Visual Enhancements (Faire-Inspired)
+## Visual Enhancements (Health & Fitness Theme)
+
+**Hero Section:**
+- Full-width inspiring fitness photography
+- Layered dark gradient + colored wash (green/orange tints)
+- White text with drop shadows for readability
+- Glassmorphism trust badge (backdrop blur + border)
+- Vibrant colored benefit icons with shadows
+- Hover scale effect on CTA button
+
+**Colorful Elements:**
+- Green primary buttons for health actions
+- Orange secondary accents for energy
+- Teal for hydration/freshness themes
+- Gradient promo banner (green-orange-green)
 
 **Improved Spacing**
 - More generous gaps between products: gap-8 (up from gap-6)
