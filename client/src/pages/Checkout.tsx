@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { CheckoutTrustIndicators } from "@/components/TrustBadges";
 import { ArrowLeft, Lock, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type { CartItem } from "@shared/schema";
@@ -294,6 +295,7 @@ export default function Checkout() {
 
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 order-2 lg:order-1">
+            <CheckoutTrustIndicators />
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <CheckoutForm cartItems={cartItems} onSuccess={handleSuccess} />
             </Elements>

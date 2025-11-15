@@ -13,6 +13,7 @@ ShopAI is a modern, automated e-commerce platform that combines AI-powered featu
 - **Stripe Integration**: Secure payment processing with Stripe Elements
 - **Order Tracking**: Customer-facing page to track orders with visual progress timeline
 - **Mobile-First Design**: Fully responsive across all devices
+- **Trust Badges**: Professional security seals and payment logos (SSL, Stripe, Visa, Mastercard, Amex, Discover, 30-day guarantee)
 
 ### Admin Dashboard
 - **Analytics Dashboard**: Real-time metrics (revenue, orders, views, conversion rates)
