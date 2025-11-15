@@ -211,14 +211,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return "";
           };
 
+          // Build product name from brand + product + size if available
+          const brand = getColumnValue(['brand', 'Brand']);
+          const productName = getColumnValue(['product', 'Product', 'Name', 'Product Name', 'Title', 'name', 'product_name']);
+          const size = getColumnValue(['size', 'Size']);
+          
+          const fullName = [brand, productName, size]
+            .filter(v => v && v.toString().trim())
+            .join(' ')
+            .trim() || productName;
+
           const productData = {
-            name: getColumnValue(['Name', 'Product Name', 'Product', 'Title', 'name', 'product_name']),
-            description: getColumnValue(['Description', 'Desc', 'Details', 'description', 'desc']),
-            price: String(getColumnValue(['Price', 'Retail Price', 'Selling Price', 'price', 'retail_price']) || "0"),
-            productCost: String(getColumnValue(['Cost', 'Product Cost', 'Cost Per Item', 'Supplier Cost', 'cost', 'product_cost']) || "0"),
-            imageUrl: getColumnValue(['Image', 'Image URL', 'Photo', 'Link', 'URL', 'image', 'image_url', 'link']),
-            stock: Number(getColumnValue(['Stock', 'Inventory', 'Quantity', 'Qty', 'stock', 'inventory']) || 0),
-            category: getColumnValue(['Category', 'Type', 'category', 'type']),
+            name: fullName,
+            description: getColumnValue(['descriptions', 'Description', 'Desc', 'Details', 'description', 'desc']) || 'Premium quality product',
+            price: String(getColumnValue(['healthywaze.com', 'Price', 'Retail Price', 'Selling Price', 'price', 'retail_price']) || "0"),
+            productCost: String(getColumnValue(['cost', 'Cost', 'Product Cost', 'Cost Per Item', 'Supplier Cost', 'product_cost']) || "0"),
+            imageUrl: getColumnValue(['image address primary', 'Image Address Primary', 'Image', 'Image URL', 'Photo', 'image', 'image_url', 'link']),
+            stock: Number(getColumnValue(['Stock', 'Inventory', 'Quantity', 'Qty', 'stock', 'inventory']) || 100),
+            category: getColumnValue(['brand', 'Brand', 'Category', 'Type', 'category', 'type']),
             adSpend: String(getColumnValue(['Ad Spend', 'Ads', 'Marketing Cost', 'ad_spend', 'ads']) || "0"),
             isPublished: true,
           };
