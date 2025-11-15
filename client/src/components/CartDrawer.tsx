@@ -6,6 +6,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { FreeShippingBar } from "@/components/ConversionBoosters";
 import { Minus, Plus, X } from "lucide-react";
 import type { CartItem } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -121,6 +122,7 @@ export function CartDrawer({ open, onClose, items, onUpdateQuantity, onRemoveIte
 
         {items.length > 0 && (
           <SheetFooter className="flex-col gap-4">
+            <FreeShippingBar currentTotal={subtotal} threshold={50} />
             <div className="flex items-center justify-between border-t pt-4 text-lg font-semibold">
               <span>Subtotal:</span>
               <span data-testid="text-subtotal">${subtotal.toFixed(2)}</span>

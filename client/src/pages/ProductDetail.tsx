@@ -3,6 +3,7 @@ import { useRoute, Link } from "wouter";
 import { StorefrontHeader } from "@/components/StorefrontHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ViewingCounter, LowStockBadge } from "@/components/ConversionBoosters";
 import { ShoppingCart, ArrowLeft, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -175,17 +176,18 @@ export default function ProductDetail() {
 
           <div className="flex flex-col gap-4 sm:gap-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold lg:text-4xl" data-testid="text-product-name">
-                {product.name}
-              </h1>
+              <div className="flex items-center justify-between mb-2">
+                <h1 className="text-2xl sm:text-3xl font-bold lg:text-4xl" data-testid="text-product-name">
+                  {product.name}
+                </h1>
+              </div>
+              <ViewingCounter productId={product.id} />
               <div className="mt-3 sm:mt-4 flex flex-wrap items-baseline gap-3 sm:gap-4">
                 <span className="text-3xl sm:text-4xl font-bold" data-testid="text-price">
                   ${price.toFixed(2)}
                 </span>
                 {!inStock && <Badge variant="secondary">Out of Stock</Badge>}
-                {inStock && product.stock <= 5 && (
-                  <Badge variant="destructive">Only {product.stock} left!</Badge>
-                )}
+                {inStock && <LowStockBadge stock={product.stock} threshold={5} />}
               </div>
             </div>
 

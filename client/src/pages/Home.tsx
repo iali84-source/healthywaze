@@ -6,6 +6,7 @@ import { HeroSection } from "@/components/HeroSection";
 import { ProductCard } from "@/components/ProductCard";
 import { CartDrawer } from "@/components/CartDrawer";
 import { TrustBadges } from "@/components/TrustBadges";
+import { SocialProofNotification, ExitIntentPopup, UrgencyTimer } from "@/components/ConversionBoosters";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, CartItem } from "@shared/schema";
@@ -96,6 +97,13 @@ export default function Home() {
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
+  const handleEmailCapture = (email: string) => {
+    toast({
+      title: "Discount code sent!",
+      description: "Check your email for your 15% off code",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <PromoBanner />
@@ -108,7 +116,16 @@ export default function Home() {
 
       <HeroSection />
 
+      {/* Conversion Boosters */}
+      <SocialProofNotification />
+      <ExitIntentPopup onEmailCapture={handleEmailCapture} />
+
       <main className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 md:py-16">
+        {/* Flash Sale Timer */}
+        <div className="max-w-2xl mx-auto mb-8">
+          <UrgencyTimer label="Limited Time Offer Ends In" />
+        </div>
+
         <div className="mb-8 sm:mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-center mb-2 sm:mb-3">
             Shop by Category
