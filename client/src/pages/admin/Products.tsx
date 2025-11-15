@@ -244,12 +244,14 @@ export default function Products() {
     }
   };
 
-  const handleImportDialogClose = () => {
-    setImportDialogOpen(false);
-    setSelectedFile(null);
-    setImportResults(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const handleImportDialogClose = (open: boolean) => {
+    setImportDialogOpen(open);
+    if (!open) {
+      setSelectedFile(null);
+      setImportResults(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
