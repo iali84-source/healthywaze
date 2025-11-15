@@ -8,13 +8,20 @@ import {
   type SiteSettings,
   type InsertSiteSettings,
   type AnalyticsData,
+  type User,
+  type InsertUser,
   products,
   orders,
   orderItems,
   siteSettings,
+  users,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   // Products
@@ -41,9 +48,26 @@ export interface IStorage {
   // Site Settings
   getSiteSettings(): Promise<SiteSettings>;
   updateSiteSettings(updates: Partial<InsertSiteSettings>): Promise<SiteSettings>;
+
+  // Users
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUser(id: number): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+
+  // Session Store
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+    });
+  }
+
   // Products
   async getProducts(): Promise<Product[]> {
     return db.select().from(products);
@@ -204,6 +228,25 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updated;
+  }
+
+  // Users
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
   }
 }
 

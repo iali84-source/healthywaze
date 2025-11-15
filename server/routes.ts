@@ -7,10 +7,11 @@ import OpenAI from "openai";
 import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import { setupAuth } from "./auth";
 
 // Reference for Stripe integration from blueprint:javascript_stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-10-29.clover" })
   : null;
 
 // Reference for OpenAI integration from blueprint:javascript_openai
@@ -102,6 +103,9 @@ Thank you!
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication routes and middleware
+  setupAuth(app);
+
   // Products CRUD
   app.get("/api/products", async (req, res) => {
     try {
