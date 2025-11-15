@@ -58,17 +58,16 @@ const CheckoutForm = ({ cartItems, onSuccess }: { cartItems: CartItem[], onSucce
         });
         setIsProcessing(false);
       } else if (paymentIntent && paymentIntent.status === "succeeded") {
+        // SECURITY: Only send customer info and cart items (productId + quantity)
+        // Server will validate prices and calculate total
         const orderData = {
           customerEmail,
           customerName,
           customerPhone: customerPhone || undefined,
           shippingAddress,
-          total: cartItems.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0),
           stripePaymentIntentId: paymentIntent.id,
           items: cartItems.map(item => ({
             productId: item.productId,
-            productName: item.name,
-            productPrice: item.price,
             quantity: item.quantity,
           })),
         };
@@ -196,11 +195,12 @@ export default function Checkout() {
         }
         setCartItems(items);
 
-        const total = items.reduce((sum: number, item: CartItem) => {
-          return sum + parseFloat(item.price) * item.quantity;
-        }, 0);
+        const cartItems = items.map((item: CartItem) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        }));
 
-        apiRequest("POST", "/api/create-payment-intent", { amount: total })
+        apiRequest("POST", "/api/create-payment-intent", { items: cartItems })
           .then((res) => res.json())
           .then((data) => {
             setClientSecret(data.clientSecret);

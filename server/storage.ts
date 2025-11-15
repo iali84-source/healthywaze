@@ -194,7 +194,7 @@ export class DatabaseStorage implements IStorage {
     );
     
     // Merge with existing settings to ensure all fields have values
-    const { id, createdAt, updatedAt, ...existingData } = existingSettings;
+    const { id, updatedAt, ...existingData } = existingSettings;
     const mergedData = { ...existingData, ...cleanedUpdates };
     
     const [updated] = await db

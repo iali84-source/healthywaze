@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, type Order, type OrderItem } from "@shared/schema";
 import Stripe from "stripe";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -16,6 +16,68 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
+
+// DROPSHIPPING AUTOMATION: Send order details to supplier
+async function sendOrderToSupplier(order: Order, items: OrderItem[]): Promise<void> {
+  const supplierEmail = process.env.SUPPLIER_EMAIL;
+  
+  if (!supplierEmail) {
+    console.log("ℹ️  SUPPLIER_EMAIL not configured. Set this environment variable to enable automatic order forwarding.");
+    console.log("📦 Order would be sent to supplier:", {
+      orderId: order.id,
+      customer: order.customerName,
+      total: order.total,
+      itemCount: items.length,
+    });
+    return;
+  }
+
+  // Format order details for supplier
+  const orderDetails = `
+NEW DROPSHIPPING ORDER - #${order.id}
+
+ORDER DETAILS:
+--------------
+Order ID: ${order.id}
+Date: ${new Date(order.createdAt).toLocaleDateString()}
+Total: $${order.total}
+
+SHIPPING ADDRESS:
+-----------------
+${order.customerName}
+${order.shippingAddress}
+${order.customerPhone ? `Phone: ${order.customerPhone}` : ''}
+
+ITEMS TO SHIP:
+--------------
+${items.map((item, i) => `${i + 1}. ${item.productName} - Qty: ${item.quantity} @ $${item.productPrice} each`).join('\n')}
+
+TOTAL ITEMS: ${items.reduce((sum, item) => sum + item.quantity, 0)}
+
+Please process and ship this order as soon as possible. Once shipped, reply with the tracking number.
+
+Thank you!
+  `.trim();
+
+  // Log what would be sent (actual email sending requires email service setup)
+  console.log("📧 DROPSHIPPING ORDER EMAIL");
+  console.log("To:", supplierEmail);
+  console.log("Subject:", `New Order #${order.id.slice(0, 8)} - ${items.length} items`);
+  console.log("---");
+  console.log(orderDetails);
+  console.log("---");
+  console.log("ℹ️  To actually send emails, set up Resend or SendGrid integration.");
+  console.log("   See: https://resend.com or https://sendgrid.com");
+
+  // TODO: Actual email sending would go here when email service is configured
+  // Example with Resend:
+  // await resend.emails.send({
+  //   from: 'orders@yourdomain.com',
+  //   to: supplierEmail,
+  //   subject: `New Order #${order.id.slice(0, 8)} - ${items.length} items`,
+  //   text: orderDetails,
+  // });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Products CRUD
@@ -105,28 +167,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", async (req, res) => {
     try {
-      const { items, ...orderData } = req.body;
+      const { items, stripePaymentIntentId, ...orderData } = req.body;
       
-      // Validate order data
-      const validated = insertOrderSchema.parse(orderData);
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Order must contain at least one item" });
+      }
+      
+      if (!stripePaymentIntentId) {
+        return res.status(400).json({ message: "Payment intent ID is required" });
+      }
+      
+      // SECURITY: Verify payment with Stripe before creating order
+      if (!stripe) {
+        return res.status(503).json({ 
+          message: "Payment verification requires STRIPE_SECRET_KEY to be configured" 
+        });
+      }
+      
+      const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
+      
+      if (!paymentIntent) {
+        return res.status(404).json({ message: "Payment intent not found" });
+      }
+      
+      if (paymentIntent.status !== "succeeded") {
+        return res.status(400).json({ 
+          message: `Payment not completed. Status: ${paymentIntent.status}` 
+        });
+      }
+      
+      // SECURITY: Verify incoming items match the payment intent metadata
+      if (!paymentIntent.metadata || !paymentIntent.metadata.items) {
+        return res.status(400).json({ 
+          message: "Payment intent missing item metadata. Please create a new checkout session." 
+        });
+      }
+      
+      let paidForItems;
+      try {
+        paidForItems = JSON.parse(paymentIntent.metadata.items);
+      } catch (error) {
+        console.error("Invalid payment intent metadata:", error);
+        return res.status(400).json({ 
+          message: "Payment intent metadata is corrupted. Please create a new checkout session." 
+        });
+      }
+      
+      // SECURITY: Validate and normalize both lists
+      // This prevents duplicate item attacks and validates item data
+      const normalizeItems = (itemList: any[]) => {
+        const normalized = new Map<string, number>();
+        for (const item of itemList) {
+          // Validate item structure
+          if (!item || typeof item.productId !== 'string' || !item.productId) {
+            throw new Error("Invalid item: missing or invalid productId");
+          }
+          if (typeof item.quantity !== 'number' || !Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 10000) {
+            throw new Error(`Invalid quantity for ${item.productId}: must be positive integer ≤10000`);
+          }
+          
+          const current = normalized.get(item.productId) || 0;
+          const newTotal = current + item.quantity;
+          
+          // Prevent quantity overflow
+          if (newTotal > 10000 || !Number.isFinite(newTotal)) {
+            throw new Error(`Total quantity for ${item.productId} exceeds limit`);
+          }
+          
+          normalized.set(item.productId, newTotal);
+        }
+        return normalized;
+      };
+      
+      let paidItemsNormalized, requestItemsNormalized;
+      try {
+        paidItemsNormalized = normalizeItems(paidForItems);
+        requestItemsNormalized = normalizeItems(items);
+      } catch (error: any) {
+        console.error("Item validation error:", error.message);
+        return res.status(400).json({ 
+          message: `Invalid item data: ${error.message}` 
+        });
+      }
+      
+      // Verify normalized items match exactly
+      if (paidItemsNormalized.size !== requestItemsNormalized.size) {
+        return res.status(400).json({ 
+          message: "Order items do not match payment. Please create a new checkout session." 
+        });
+      }
+      
+      for (const [productId, quantity] of Array.from(paidItemsNormalized)) {
+        const requestedQty = requestItemsNormalized.get(productId);
+        if (!requestedQty || requestedQty !== quantity) {
+          return res.status(400).json({ 
+            message: "Order items do not match payment. Please create a new checkout session." 
+          });
+        }
+      }
+      
+      // SECURITY: Validate prices and calculate total server-side
+      let calculatedTotal = 0;
+      const validatedItems = [];
+      
+      for (const item of items) {
+        if (!item.productId || !item.quantity || item.quantity <= 0) {
+          return res.status(400).json({ message: "Invalid item data" });
+        }
+        
+        // Fetch actual product from database
+        const product = await storage.getProduct(item.productId);
+        
+        if (!product) {
+          return res.status(404).json({ 
+            message: `Product not found: ${item.productId}` 
+          });
+        }
+        
+        if (!product.isPublished) {
+          return res.status(400).json({ 
+            message: `Product is no longer available: ${product.name}` 
+          });
+        }
+        
+        if (product.stock < item.quantity) {
+          return res.status(400).json({ 
+            message: `Insufficient stock for ${product.name}. Available: ${product.stock}` 
+          });
+        }
+        
+        // Use ACTUAL price from database, not client-supplied price
+        const actualPrice = parseFloat(product.price.toString());
+        calculatedTotal += actualPrice * item.quantity;
+        
+        validatedItems.push({
+          productId: product.id,
+          productName: product.name,
+          productPrice: product.price.toString(),
+          quantity: item.quantity,
+        });
+      }
+      
+      // SECURITY: Verify payment amount matches calculated total
+      const paidAmount = paymentIntent.amount / 100; // Convert from cents
+      
+      // Guard against NaN/Infinity from overflow
+      if (!Number.isFinite(calculatedTotal) || calculatedTotal <= 0) {
+        console.error("Invalid calculated total:", calculatedTotal);
+        return res.status(500).json({ message: "Order calculation error" });
+      }
+      
+      if (Math.abs(paidAmount - calculatedTotal) > 0.01) {
+        return res.status(400).json({ 
+          message: `Payment amount mismatch. Paid: $${paidAmount.toFixed(2)}, Required: $${calculatedTotal.toFixed(2)}` 
+        });
+      }
+      
+      // SECURITY: Use ONLY server-calculated total, ignore any client-supplied total
+      const validated = insertOrderSchema.parse({
+        ...orderData,
+        stripePaymentIntentId,
+        total: calculatedTotal.toFixed(2),
+      });
       
       // Create order
       const order = await storage.createOrder(validated);
       
-      // Create order items and update inventory
-      if (items && Array.isArray(items)) {
-        for (const item of items) {
-          await storage.createOrderItem({
+      // Create order items with validated prices and update inventory
+      // Wrapped in try-catch for transaction safety
+      const orderItemsDetails = [];
+      try {
+        for (const item of validatedItems) {
+          const createdItem = await storage.createOrderItem({
             orderId: order.id,
             productId: item.productId,
             productName: item.productName,
             productPrice: item.productPrice,
             quantity: item.quantity,
           });
+          orderItemsDetails.push(createdItem);
         }
+      } catch (error: any) {
+        // If order item creation fails, we should mark the order as failed
+        // In a production system, you'd want proper transaction rollback
+        console.error("Failed to create order items:", error.message);
+        await storage.updateOrder(order.id, { status: "failed" });
+        throw new Error(`Failed to create order items: ${error.message}`);
       }
       
-      res.status(201).json(order);
+      // DROPSHIPPING AUTOMATION: Send order to supplier
+      try {
+        await sendOrderToSupplier(order, orderItemsDetails);
+      } catch (error: any) {
+        console.error("Failed to send order to supplier:", error.message);
+        // Don't fail the order creation if email fails
+      }
+      
+      // Return order with calculated total and validated items
+      res.status(201).json({
+        ...order,
+        calculatedTotal: calculatedTotal.toFixed(2),
+        items: orderItemsDetails,
+      });
     } catch (error: any) {
       if (error.name === "ZodError") {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
@@ -142,6 +384,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       res.json(order);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/orders/:id/items", async (req, res) => {
+    try {
+      const items = await storage.getOrderItems(req.params.id);
+      res.json(items);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -176,18 +427,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         model: "gpt-5",
         messages: [
           {
-            role: "system",
-            content: "You are a professional e-commerce copywriter. Create compelling, SEO-optimized product descriptions that highlight benefits and create desire. Keep descriptions concise (2-3 sentences) but persuasive.",
-          },
-          {
             role: "user",
-            content: `Write a compelling product description for: ${name}`,
+            content: `Write a 2-3 sentence product description for "${name}" that highlights key benefits and features. Be persuasive and professional.`,
           },
         ],
-        max_completion_tokens: 200,
+        max_completion_tokens: 1000,
       });
 
-      const description = response.choices[0].message.content;
+      const description = response.choices[0]?.message?.content || "";
+      
+      if (!description) {
+        console.error("OpenAI returned empty description. Response:", JSON.stringify(response, null, 2));
+      }
+      
       res.json({ description });
     } catch (error: any) {
       console.error("OpenAI error:", error);
@@ -238,7 +490,7 @@ Keep the analysis practical and actionable for a business owner.`;
             content: prompt,
           },
         ],
-        max_completion_tokens: 800,
+        max_completion_tokens: 1200,
       });
 
       const insights = response.choices[0].message.content;
@@ -273,6 +525,7 @@ Keep the analysis practical and actionable for a business owner.`;
   });
 
   // Stripe: Create payment intent (reference from blueprint:javascript_stripe)
+  // SECURITY: Validates prices server-side to prevent client-side manipulation
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
       if (!stripe) {
@@ -281,12 +534,69 @@ Keep the analysis practical and actionable for a business owner.`;
         });
       }
 
-      const { amount } = req.body;
+      const { items } = req.body;
+      
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Cart items are required" });
+      }
+
+      // SECURITY: Calculate total server-side using actual product prices from database
+      let calculatedTotal = 0;
+      const validatedItems = [];
+      
+      for (const item of items) {
+        if (!item.productId || !item.quantity || item.quantity <= 0) {
+          return res.status(400).json({ message: "Invalid cart item data" });
+        }
+        
+        // Fetch actual product from database
+        const product = await storage.getProduct(item.productId);
+        
+        if (!product) {
+          return res.status(404).json({ 
+            message: `Product not found: ${item.productId}` 
+          });
+        }
+        
+        if (!product.isPublished) {
+          return res.status(400).json({ 
+            message: `Product is no longer available: ${product.name}` 
+          });
+        }
+        
+        if (product.stock < item.quantity) {
+          return res.status(400).json({ 
+            message: `Insufficient stock for ${product.name}. Available: ${product.stock}` 
+          });
+        }
+        
+        // Use the ACTUAL price from database, not client-supplied price
+        const itemTotal = parseFloat(product.price.toString()) * item.quantity;
+        calculatedTotal += itemTotal;
+        
+        validatedItems.push({
+          productId: product.id,
+          productName: product.name,
+          productPrice: product.price.toString(),
+          quantity: item.quantity,
+        });
+      }
+
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
+        amount: Math.round(calculatedTotal * 100), // Convert to cents
         currency: "usd",
+        metadata: {
+          itemCount: validatedItems.length,
+          calculatedTotal: calculatedTotal.toFixed(2),
+          items: JSON.stringify(validatedItems),
+        },
       });
-      res.json({ clientSecret: paymentIntent.client_secret });
+      
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        calculatedTotal: calculatedTotal.toFixed(2),
+        validatedItems,
+      });
     } catch (error: any) {
       res
         .status(500)
