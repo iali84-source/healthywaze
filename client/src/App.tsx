@@ -17,9 +17,12 @@ import Orders from "@/pages/admin/Orders";
 import Analytics from "@/pages/admin/Analytics";
 import Tutorial from "@/pages/admin/Tutorial";
 import SiteSettings from "@/pages/admin/SiteSettings";
+import AuthPage from "@/pages/AuthPage";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 function StorefrontRouter() {
   useAnalytics();
@@ -31,6 +34,7 @@ function StorefrontRouter() {
       <Route path="/checkout" component={Checkout} />
       <Route path="/order-confirmation" component={OrderConfirmation} />
       <Route path="/track-order" component={TrackOrder} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -41,12 +45,12 @@ function AdminRouter() {
   
   return (
     <Switch>
-      <Route path="/admin" component={Dashboard} />
-      <Route path="/admin/products" component={Products} />
-      <Route path="/admin/orders" component={Orders} />
-      <Route path="/admin/analytics" component={Analytics} />
-      <Route path="/admin/settings" component={SiteSettings} />
-      <Route path="/admin/tutorial" component={Tutorial} />
+      <ProtectedRoute path="/admin" component={Dashboard} />
+      <ProtectedRoute path="/admin/products" component={Products} />
+      <ProtectedRoute path="/admin/orders" component={Orders} />
+      <ProtectedRoute path="/admin/analytics" component={Analytics} />
+      <ProtectedRoute path="/admin/settings" component={SiteSettings} />
+      <ProtectedRoute path="/admin/tutorial" component={Tutorial} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -71,32 +75,36 @@ function App() {
 
     return (
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <SidebarProvider style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full">
-              <AppSidebar />
-              <div className="flex flex-1 flex-col">
-                <header className="flex h-16 items-center gap-4 border-b px-6">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" />
-                </header>
-                <main className="flex-1 overflow-auto p-6">
-                  <AdminRouter />
-                </main>
+        <AuthProvider>
+          <TooltipProvider>
+            <SidebarProvider style={style as React.CSSProperties}>
+              <div className="flex h-screen w-full">
+                <AppSidebar />
+                <div className="flex flex-1 flex-col">
+                  <header className="flex h-16 items-center gap-4 border-b px-6">
+                    <SidebarTrigger data-testid="button-sidebar-toggle" />
+                  </header>
+                  <main className="flex-1 overflow-auto p-6">
+                    <AdminRouter />
+                  </main>
+                </div>
               </div>
-            </div>
-          </SidebarProvider>
-          <Toaster />
-        </TooltipProvider>
+            </SidebarProvider>
+            <Toaster />
+          </TooltipProvider>
+        </AuthProvider>
       </QueryClientProvider>
     );
   }
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <StorefrontRouter />
-        <Toaster />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <StorefrontRouter />
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
