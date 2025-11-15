@@ -221,12 +221,13 @@ export function ExitIntentPopup({ onEmailCapture }: ExitIntentPopupProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in" data-testid="exit-intent-popup">
-      <Card className="max-w-md w-full bg-card border-2 border-primary animate-in zoom-in-95">
+      <Card className="max-w-md w-full bg-card border-2 border-primary animate-in zoom-in-95 relative">
         <div className="p-6">
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+            className="absolute top-4 right-4 text-foreground hover:text-primary z-10 bg-background rounded-full p-1"
             data-testid="button-close-exit-popup"
+            aria-label="Close popup"
           >
             <X className="w-5 h-5" />
           </button>
@@ -256,7 +257,15 @@ export function ExitIntentPopup({ onEmailCapture }: ExitIntentPopupProps) {
             <Button type="submit" className="w-full" size="lg" data-testid="button-claim-discount">
               Claim My 15% Discount
             </Button>
-            <p className="text-xs text-center text-muted-foreground">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground underline"
+              data-testid="button-skip-offer"
+            >
+              No thanks, I'll pay full price
+            </button>
+            <p className="text-xs text-center text-muted-foreground mt-2">
               One-time offer. Code will be sent to your email.
             </p>
           </form>
