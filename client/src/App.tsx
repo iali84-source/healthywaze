@@ -45,6 +45,7 @@ function AdminRouter() {
   
   return (
     <Switch>
+      <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/admin" component={Dashboard} />
       <ProtectedRoute path="/admin/products" component={Products} />
       <ProtectedRoute path="/admin/orders" component={Orders} />
@@ -65,7 +66,7 @@ function App() {
     }
   }, []);
 
-  const isAdminRoute = window.location.pathname.startsWith('/admin');
+  const isAdminRoute = window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/auth');
 
   if (isAdminRoute) {
     const style = {
