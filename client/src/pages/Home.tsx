@@ -5,6 +5,7 @@ import { StorefrontHeader } from "@/components/StorefrontHeader";
 import { HeroSection } from "@/components/HeroSection";
 import { ProductCard } from "@/components/ProductCard";
 import { CartDrawer } from "@/components/CartDrawer";
+import { TrustBadges } from "@/components/TrustBadges";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, CartItem } from "@shared/schema";
@@ -186,6 +187,8 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      <TrustBadges />
 
       <CartDrawer
         open={cartOpen}
