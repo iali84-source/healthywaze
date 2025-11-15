@@ -12,6 +12,8 @@ export const products = pgTable("products", {
   stock: integer("stock").notNull().default(0),
   isPublished: boolean("is_published").notNull().default(true),
   category: text("category"),
+  catalogNumber: text("catalog_number"),
+  upc: text("upc"),
   views: integer("views").notNull().default(0),
   sales: integer("sales").notNull().default(0),
   adSpend: decimal("ad_spend", { precision: 10, scale: 2 }).notNull().default("0"),

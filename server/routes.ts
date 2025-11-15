@@ -262,9 +262,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Build product name from brand + product + size if available
-          const brand = getColumnValue(['brand', 'Brand']);
-          const productName = getColumnValue(['product', 'Product', 'Name', 'Product Name', 'Title']);
-          const size = getColumnValue(['size', 'Size']);
+          const brand = getColumnValue(['brand']);
+          const productName = getColumnValue(['product', 'name', 'product name', 'title']);
+          const size = getColumnValue(['size']);
           
           const fullName = [brand, productName, size]
             .filter(v => v && v.trim())
@@ -276,23 +276,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error("Product name is required - need 'brand', 'product', 'size' or 'name' column");
           }
 
-          const description = getColumnValue(['descriptions', 'description', 'desc', 'details']);
-          if (!description) {
-            throw new Error("Description is required - need 'descriptions' or 'description' column");
-          }
-
+          // PRICE is required (prioritize PRICE column, then healthywaze.com as fallback)
           const priceValue = getColumnValue([
+            'price',
             'healthywaze.com',
             'healthywazecom',
             'healthywaze price',
-            'price',
             'retail price',
             'selling price',
             'unit price'
           ]);
           if (!priceValue || parseFloat(priceValue) <= 0) {
-            throw new Error("Valid price is required - need 'healthywaze.com' or 'price' column with value > 0");
+            throw new Error("Valid price is required - need 'price' or 'healthywaze.com' column with value > 0");
           }
+
+          // Description is optional - generate default if missing
+          const description = getColumnValue(['descriptions', 'description', 'desc', 'details']) 
+            || `${fullName} - Premium quality product`;
+
+          // Get catalog number and UPC
+          const catalogNumber = getColumnValue(['catalog number', 'catalognumber', 'catalog', 'sku', 'item number']);
+          const upc = getColumnValue(['upc', 'upc code', 'barcode']);
 
           // Get first available image from primary or fallback columns
           const imageUrl = getColumnValue([
@@ -311,6 +315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             description: description,
             price: priceValue,
             productCost: String(getColumnValue(['cost', 'product cost', 'cost per item', 'supplier cost']) || "0"),
+            catalogNumber: catalogNumber || undefined,
+            upc: upc || undefined,
             imageUrl: imageUrl,
             stock: Number(getColumnValue(['stock', 'inventory', 'quantity', 'qty']) || 100),
             category: getColumnValue(['brand', 'category', 'type']),
