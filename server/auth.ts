@@ -97,3 +97,22 @@ export function setupAuth(app: Express) {
     res.json(sanitizeUser(req.user!));
   });
 }
+
+// Middleware to ensure user is authenticated
+export function requireAuth(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  next();
+}
+
+// Middleware to ensure user is an admin
+export function requireAdmin(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+}

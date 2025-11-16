@@ -23,6 +23,7 @@ export const products = pgTable("products", {
 
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: integer("user_id").references(() => users.id),
   customerEmail: text("customer_email").notNull(),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone"),
@@ -66,6 +67,9 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  role: text("role").notNull().default("customer"),
+  email: text("email"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({

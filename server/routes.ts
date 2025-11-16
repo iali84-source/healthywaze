@@ -7,7 +7,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
-import { setupAuth } from "./auth";
+import { setupAuth, requireAuth, requireAdmin } from "./auth";
 
 // Reference for Stripe integration from blueprint:javascript_stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
