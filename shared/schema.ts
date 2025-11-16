@@ -27,7 +27,29 @@ export const orders = pgTable("orders", {
   customerEmail: text("customer_email").notNull(),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone"),
-  shippingAddress: text("shipping_address").notNull(),
+  
+  // Legacy shipping address field (for backward compatibility)
+  shippingAddress: text("shipping_address"),
+  
+  // Structured shipping address
+  shippingAddressLine1: text("shipping_address_line1"),
+  shippingAddressLine2: text("shipping_address_line2"),
+  shippingCity: text("shipping_city"),
+  shippingState: text("shipping_state"),
+  shippingZip: text("shipping_zip"),
+  shippingCountry: text("shipping_country").default("United States"),
+  
+  // Structured billing address
+  billingAddressLine1: text("billing_address_line1"),
+  billingAddressLine2: text("billing_address_line2"),
+  billingCity: text("billing_city"),
+  billingState: text("billing_state"),
+  billingZip: text("billing_zip"),
+  billingCountry: text("billing_country").default("United States"),
+  
+  // Flag to indicate if billing address same as shipping
+  billingSameAsShipping: boolean("billing_same_as_shipping").default(true),
+  
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("pending"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
@@ -72,6 +94,23 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export const customerAddresses = pgTable("customer_addresses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  label: text("label"),
+  fullName: text("full_name").notNull(),
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2"),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zip: text("zip").notNull(),
+  country: text("country").notNull().default("United States"),
+  phone: text("phone"),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
@@ -98,6 +137,12 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
 
+export const insertCustomerAddressSchema = createInsertSchema(customerAddresses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
@@ -108,6 +153,8 @@ export type InsertSiteSettings = z.infer<typeof insertSiteSettingsSchema>;
 export type SiteSettings = typeof siteSettings.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertCustomerAddress = z.infer<typeof insertCustomerAddressSchema>;
+export type CustomerAddress = typeof customerAddresses.$inferSelect;
 
 export interface CartItem {
   productId: string;

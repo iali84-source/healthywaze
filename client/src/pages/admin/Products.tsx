@@ -116,6 +116,21 @@ export default function Products() {
     },
   });
 
+  const categorizeMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/ai/categorize-products", {}),
+    onSuccess: async (response) => {
+      const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ 
+        title: "Products categorized!", 
+        description: `Successfully categorized ${data.categorized} of ${data.total} products.`
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to categorize products", variant: "destructive" });
+    },
+  });
+
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -266,33 +281,54 @@ export default function Products() {
         </div>
         <div className="flex gap-2">
           {products.length > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" data-testid="button-delete-all">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete All Products
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete all {products.length} products from your catalog.
-                    This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => deleteAllMutation.mutate()}
-                    disabled={deleteAllMutation.isPending}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {deleteAllMutation.isPending ? "Deleting..." : "Delete All Products"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <Button 
+                variant="secondary" 
+                onClick={() => categorizeMutation.mutate()}
+                disabled={categorizeMutation.isPending}
+                data-testid="button-ai-categorize"
+              >
+                {categorizeMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Categorizing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    AI Categorize All
+                  </>
+                )}
+              </Button>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" data-testid="button-delete-all">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete All Products
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all {products.length} products from your catalog.
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteAllMutation.mutate()}
+                      disabled={deleteAllMutation.isPending}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleteAllMutation.isPending ? "Deleting..." : "Delete All Products"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
           
           <Dialog open={importDialogOpen} onOpenChange={handleImportDialogClose}>
