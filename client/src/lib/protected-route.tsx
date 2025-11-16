@@ -5,9 +5,11 @@ import { Redirect, Route } from "wouter";
 export function ProtectedRoute({
   path,
   component: Component,
+  requireRole,
 }: {
   path: string;
   component: () => React.JSX.Element;
+  requireRole?: 'admin' | 'customer';
 }) {
   const { user, isLoading } = useAuth();
 
@@ -25,6 +27,14 @@ export function ProtectedRoute({
     return (
       <Route path={path}>
         <Redirect to="/auth" />
+      </Route>
+    );
+  }
+
+  if (requireRole && user.role !== requireRole) {
+    return (
+      <Route path={path}>
+        <Redirect to={user.role === 'admin' ? '/admin' : '/'} />
       </Route>
     );
   }
