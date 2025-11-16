@@ -10,11 +10,14 @@ import {
   type AnalyticsData,
   type User,
   type InsertUser,
+  type CustomerAddress,
+  type InsertCustomerAddress,
   products,
   orders,
   orderItems,
   siteSettings,
   users,
+  customerAddresses,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -54,6 +57,14 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUser(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+
+  // Customer Addresses
+  getCustomerAddresses(userId: number): Promise<CustomerAddress[]>;
+  getCustomerAddress(id: number): Promise<CustomerAddress | undefined>;
+  createCustomerAddress(address: InsertCustomerAddress): Promise<CustomerAddress>;
+  updateCustomerAddress(id: number, address: Partial<InsertCustomerAddress>): Promise<CustomerAddress | undefined>;
+  deleteCustomerAddress(id: number): Promise<boolean>;
+  setDefaultAddress(userId: number, addressId: number): Promise<void>;
 
   // Session Store
   sessionStore: session.Store;
@@ -252,6 +263,52 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  // Customer Addresses
+  async getCustomerAddresses(userId: number): Promise<CustomerAddress[]> {
+    return db.select().from(customerAddresses).where(eq(customerAddresses.userId, userId));
+  }
+
+  async getCustomerAddress(id: number): Promise<CustomerAddress | undefined> {
+    const [address] = await db.select().from(customerAddresses).where(eq(customerAddresses.id, id));
+    return address || undefined;
+  }
+
+  async createCustomerAddress(insertAddress: InsertCustomerAddress): Promise<CustomerAddress> {
+    const [address] = await db
+      .insert(customerAddresses)
+      .values(insertAddress)
+      .returning();
+    return address;
+  }
+
+  async updateCustomerAddress(id: number, updates: Partial<InsertCustomerAddress>): Promise<CustomerAddress | undefined> {
+    const [address] = await db
+      .update(customerAddresses)
+      .set({ ...updates, updatedAt: sql`now()` })
+      .where(eq(customerAddresses.id, id))
+      .returning();
+    return address || undefined;
+  }
+
+  async deleteCustomerAddress(id: number): Promise<boolean> {
+    const result = await db.delete(customerAddresses).where(eq(customerAddresses.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async setDefaultAddress(userId: number, addressId: number): Promise<void> {
+    // First, unset all default addresses for this user
+    await db
+      .update(customerAddresses)
+      .set({ isDefault: false })
+      .where(eq(customerAddresses.userId, userId));
+
+    // Then, set the selected address as default
+    await db
+      .update(customerAddresses)
+      .set({ isDefault: true, updatedAt: sql`now()` })
+      .where(eq(customerAddresses.id, addressId));
   }
 }
 

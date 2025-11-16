@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, type Order, type OrderItem } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, insertCustomerAddressSchema, type Order, type OrderItem } from "@shared/schema";
 import Stripe from "stripe";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -897,6 +897,87 @@ Keep the analysis practical and actionable for a business owner.`;
     }
   });
 
+  // AI: Categorize products - Admin only
+  app.post("/api/ai/categorize-products", requireAdmin, async (req, res) => {
+    try {
+      if (!openai) {
+        return res.status(503).json({ 
+          message: "AI features require OPENAI_API_KEY to be configured" 
+        });
+      }
+
+      const products = await storage.getProducts();
+      let categorized = 0;
+      let failed = 0;
+      const results = [];
+
+      for (const product of products) {
+        try {
+          const response = await openai.chat.completions.create({
+            model: "gpt-5",
+            messages: [
+              {
+                role: "system",
+                content: `You are a health and wellness product categorization expert. Categorize products into ONE of these specific categories:
+
+- Vitamins & Minerals
+- Supplements & Herbs
+- Sports Nutrition
+- Protein & Fitness
+- Skin Care & Beauty
+- Hair Care
+- Body Care & Lotions
+- Essential Oils & Aromatherapy
+- Digestive Health
+- Immune Support
+- Joint & Bone Health
+- Heart & Cardiovascular
+- Brain & Cognitive
+- Sleep & Relaxation
+- Weight Management
+- Women's Health
+- Men's Health
+- Children's Health
+- Specialty Diets & Foods
+- Bath & Personal Care
+- Household & Cleaning
+- Pet Care
+- Other
+
+Only respond with the category name, nothing else.`,
+              },
+              {
+                role: "user",
+                content: `Categorize this product:\nName: ${product.name}\nDescription: ${product.description.slice(0, 500)}`,
+              },
+            ],
+            max_completion_tokens: 50,
+          });
+
+          const category = response.choices[0].message.content?.trim() || "Other";
+          
+          await storage.updateProduct(product.id, { category });
+          categorized++;
+          results.push({ id: product.id, name: product.name, category });
+        } catch (error: any) {
+          console.error(`Failed to categorize product ${product.id}:`, error.message);
+          failed++;
+          results.push({ id: product.id, name: product.name, error: error.message });
+        }
+      }
+
+      res.json({ 
+        total: products.length, 
+        categorized, 
+        failed,
+        results 
+      });
+    } catch (error: any) {
+      console.error("OpenAI error:", error);
+      res.status(500).json({ message: "Failed to categorize products: " + error.message });
+    }
+  });
+
   // Site Settings
   app.get("/api/site-settings", async (req, res) => {
     try {
@@ -916,6 +997,93 @@ Keep the analysis practical and actionable for a business owner.`;
       if (error.name === "ZodError") {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Customer Addresses - Requires authentication
+  app.get("/api/addresses", requireAuth, async (req, res) => {
+    try {
+      const addresses = await storage.getCustomerAddresses(req.user!.id);
+      res.json(addresses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/addresses", requireAuth, async (req, res) => {
+    try {
+      // Validate with Zod schema
+      const validated = insertCustomerAddressSchema.parse({
+        ...req.body,
+        userId: req.user!.id, // Force userId to authenticated user
+      });
+      
+      const address = await storage.createCustomerAddress(validated);
+      res.status(201).json(address);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/addresses/:id", requireAuth, async (req, res) => {
+    try {
+      // Verify ownership
+      const existingAddress = await storage.getCustomerAddress(parseInt(req.params.id));
+      if (!existingAddress || existingAddress.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      // Validate with Zod schema (partial for updates)
+      const validated = insertCustomerAddressSchema.partial().parse(req.body);
+      
+      // Ensure userId cannot be changed
+      delete (validated as any).userId;
+      
+      const address = await storage.updateCustomerAddress(parseInt(req.params.id), validated);
+      res.json(address);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/addresses/:id", requireAuth, async (req, res) => {
+    try {
+      // Verify ownership
+      const existingAddress = await storage.getCustomerAddress(parseInt(req.params.id));
+      if (!existingAddress || existingAddress.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      const deleted = await storage.deleteCustomerAddress(parseInt(req.params.id));
+      res.json({ success: deleted });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/addresses/:id/set-default", requireAuth, async (req, res) => {
+    try {
+      // Verify ownership BEFORE calling setDefaultAddress
+      const existingAddress = await storage.getCustomerAddress(parseInt(req.params.id));
+      if (!existingAddress) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+      
+      // SECURITY: Verify the address belongs to the authenticated user
+      if (existingAddress.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.setDefaultAddress(req.user!.id, parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
