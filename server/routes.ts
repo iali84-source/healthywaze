@@ -109,7 +109,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Products CRUD
   app.get("/api/products", async (req, res) => {
     try {
-      const products = await storage.getProducts();
+      const filters = {
+        category: req.query.category as string | undefined,
+        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
+        minRating: req.query.minRating ? parseFloat(req.query.minRating as string) : undefined,
+        search: req.query.search as string | undefined,
+      };
+      const products = await storage.getProducts(filters);
       res.json(products);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

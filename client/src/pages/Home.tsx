@@ -8,6 +8,11 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { TrustBadges } from "@/components/TrustBadges";
 import { SocialProofNotification, ExitIntentPopup, UrgencyTimer } from "@/components/ConversionBoosters";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
+import { Star, SlidersHorizontal, X } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, CartItem } from "@shared/schema";
 
@@ -16,9 +21,41 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 200]);
+  const [minRating, setMinRating] = useState<number>(0);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
+  // Build filter query params
+  const filterParams = new URLSearchParams();
+  if (selectedCategory !== "All") {
+    filterParams.set("category", selectedCategory);
+  }
+  if (searchQuery) {
+    filterParams.set("search", searchQuery);
+  }
+  if (priceRange[0] > 0) {
+    filterParams.set("minPrice", priceRange[0].toString());
+  }
+  if (priceRange[1] < 200) {
+    filterParams.set("maxPrice", priceRange[1].toString());
+  }
+  if (minRating > 0) {
+    filterParams.set("minRating", minRating.toString());
+  }
+
+  const queryString = filterParams.toString();
   const { data: products = [], isLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products", queryString],
+    queryFn: async () => {
+      const url = `/api/products${queryString ? `?${queryString}` : ''}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch products');
+      return response.json();
+    },
+  });
+
+  // Get all categories for filter
+  const { data: allProducts = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
@@ -87,15 +124,18 @@ export default function Home() {
     });
   };
 
-  const categories = ["All", ...Array.from(new Set(products.map(p => p.category).filter((c): c is string => Boolean(c))))];
-
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || p.category === selectedCategory;
-    return p.isPublished && matchesSearch && matchesCategory;
-  });
+  const categories = ["All", ...Array.from(new Set(allProducts.map(p => p.category).filter((c): c is string => Boolean(c))))];
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const clearFilters = () => {
+    setSelectedCategory("All");
+    setPriceRange([0, 200]);
+    setMinRating(0);
+    setSearchQuery("");
+  };
+
+  const hasActiveFilters = selectedCategory !== "All" || priceRange[0] > 0 || priceRange[1] < 200 || minRating > 0 || searchQuery;
 
   const handleEmailCapture = (email: string) => {
     toast({
@@ -165,10 +205,127 @@ export default function Home() {
           )}
         </div>
 
-        <div className="mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-4 sm:mb-6">
+        <div className="mb-6 sm:mb-8 flex items-center justify-between gap-4">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
             {selectedCategory === "All" ? "All Products" : selectedCategory}
+            {products.length > 0 && (
+              <span className="ml-2 text-base sm:text-lg text-muted-foreground font-normal">
+                ({products.length})
+              </span>
+            )}
           </h2>
+
+          <div className="flex items-center gap-2">
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                data-testid="button-clear-filters"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+
+            {/* Mobile Filter Button */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" data-testid="button-filters">
+                  <SlidersHorizontal className="h-4 w-4 mr-2" />
+                  Filters
+                  {hasActiveFilters && (
+                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                      {[
+                        selectedCategory !== "All",
+                        priceRange[0] > 0 || priceRange[1] < 200,
+                        minRating > 0,
+                      ].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-80 overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Filter Products</SheetTitle>
+                </SheetHeader>
+
+                <div className="mt-6 space-y-6">
+                  {/* Price Range Filter */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Price Range</Label>
+                    <div className="pt-2">
+                      <Slider
+                        min={0}
+                        max={200}
+                        step={5}
+                        value={priceRange}
+                        onValueChange={(value) => setPriceRange(value as [number, number])}
+                        data-testid="slider-price-range"
+                      />
+                      <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
+                        <span data-testid="text-min-price">${priceRange[0]}</span>
+                        <span data-testid="text-max-price">${priceRange[1]}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rating Filter */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Minimum Rating</Label>
+                    <div className="flex flex-col gap-2">
+                      {[0, 4, 3, 2, 1].map((rating) => (
+                        <button
+                          key={rating}
+                          onClick={() => setMinRating(rating)}
+                          className={`flex items-center gap-2 p-2 rounded-md transition-colors hover-elevate ${
+                            minRating === rating
+                              ? "bg-primary/5 border-2 border-primary"
+                              : "border-2 border-transparent hover:border-border"
+                          }`}
+                          data-testid={`button-rating-${rating}`}
+                        >
+                          <div className="flex items-center">
+                            {rating === 0 ? (
+                              <span className="text-sm font-medium">All Ratings</span>
+                            ) : (
+                              <>
+                                {[...Array(rating)].map((_, i) => (
+                                  <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                                ))}
+                                <span className="ml-1.5 text-sm font-medium">& Up</span>
+                              </>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category Filter */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Category</Label>
+                    <div className="flex flex-col gap-2">
+                      {categories.map((category) => (
+                        <button
+                          key={category}
+                          onClick={() => setSelectedCategory(category)}
+                          className={`text-left p-2 rounded-md transition-colors hover-elevate ${
+                            selectedCategory === category
+                              ? "bg-primary/5 border-2 border-primary font-medium"
+                              : "border-2 border-transparent hover:border-border"
+                          }`}
+                          data-testid={`button-filter-category-${category}`}
+                        >
+                          {category}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
 
         {isLoading ? (
@@ -185,16 +342,21 @@ export default function Home() {
               </div>
             ))}
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="flex min-h-[300px] sm:min-h-[400px] flex-col items-center justify-center gap-2 sm:gap-3 text-center px-4">
             <p className="text-lg sm:text-xl font-medium text-muted-foreground">No products found</p>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              {searchQuery ? "Try a different search term" : "Check back soon for new arrivals"}
+              {hasActiveFilters ? "Try adjusting your filters" : "Check back soon for new arrivals"}
             </p>
+            {hasActiveFilters && (
+              <Button onClick={clearFilters} variant="outline" className="mt-2" data-testid="button-clear-all-filters">
+                Clear All Filters
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8 md:grid-cols-3 lg:grid-cols-4">
-            {filteredProducts.map((product) => (
+            {products.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
