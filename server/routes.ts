@@ -904,6 +904,120 @@ Keep the analysis practical and actionable for a business owner.`;
     }
   });
 
+  // AI: Analyze product demand trends - Admin only
+  app.post("/api/ai/analyze-demand", requireAdmin, async (req, res) => {
+    try {
+      if (!openai) {
+        return res.status(503).json({ 
+          message: "AI features require OPENAI_API_KEY to be configured" 
+        });
+      }
+
+      const products = await storage.getProducts();
+      
+      // Prepare product data for AI analysis
+      const productSummaries = products.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category || "Uncategorized",
+        price: parseFloat(p.price),
+        sales: p.sales,
+        views: p.views,
+        stock: p.stock,
+      }));
+
+      const prompt = `You are a market demand analysis expert for health & wellness e-commerce. Analyze the following product catalog and rank products by market demand potential.
+
+PRODUCT DATA:
+${JSON.stringify(productSummaries, null, 2)}
+
+For each product, provide a demand analysis considering:
+1. **Trend Score (1-10)**: Current market demand and growth trajectory for this product type
+2. **Seasonality**: When demand peaks (e.g., "January-March for fitness products")
+3. **Competition Level**: High/Medium/Low based on market saturation
+4. **Price Optimization**: Is the price point competitive?
+5. **Search Demand**: Estimated Google search interest for this product category
+6. **Recommendation**: Specific action (e.g., "Promote heavily", "Stock up", "Consider bundling", "Phase out")
+
+Return a JSON array of objects with this exact structure:
+[
+  {
+    "productId": "uuid",
+    "productName": "Product Name",
+    "demandScore": 8.5,
+    "trendScore": 9,
+    "seasonality": "Peak: January-March (New Year fitness goals)",
+    "competitionLevel": "Medium",
+    "priceOptimization": "Competitive at current price",
+    "searchDemand": "High - 50K+ monthly searches",
+    "recommendation": "Promote heavily in Q1, consider bundle with yoga mats",
+    "insights": "Strong upward trend, capitalize on New Year resolutions"
+  }
+]
+
+Sort by demandScore (highest first). Include ALL products. Be specific and actionable.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert market analyst specializing in e-commerce demand forecasting and Google search trends. Provide data-driven insights with specific, actionable recommendations.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4000,
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        return res.status(500).json({ message: "No response from AI" });
+      }
+
+      // Parse the JSON response
+      const parsedResponse = JSON.parse(content);
+      
+      // Handle both array and object with array property
+      let rawAnalysis = Array.isArray(parsedResponse) 
+        ? parsedResponse 
+        : parsedResponse.products || parsedResponse.analysis || [];
+
+      // Create a map of actual product IDs for validation
+      const validProductIds = new Set(products.map(p => p.id));
+
+      // Validate and filter: only include analysis for actual products in database
+      let analysis = rawAnalysis
+        .map((item: any) => ({
+          productId: item.productId || "",
+          productName: item.productName || "",
+          demandScore: typeof item.demandScore === "number" ? item.demandScore : 0,
+          trendScore: typeof item.trendScore === "number" ? item.trendScore : 0,
+          seasonality: item.seasonality || "Unknown",
+          competitionLevel: item.competitionLevel || "Medium",
+          priceOptimization: item.priceOptimization || "",
+          searchDemand: item.searchDemand || "Unknown",
+          recommendation: item.recommendation || "",
+          insights: item.insights || "",
+        }))
+        .filter((item: any) => {
+          // Only keep items with valid product IDs that exist in our database
+          return item.productId && validProductIds.has(item.productId);
+        });
+
+      // Explicitly sort by demandScore (highest first)
+      analysis.sort((a: any, b: any) => b.demandScore - a.demandScore);
+
+      res.json({ analysis, totalProducts: products.length, analyzedProducts: analysis.length });
+    } catch (error: any) {
+      console.error("OpenAI demand analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze demand: " + error.message });
+    }
+  });
+
   // AI: Categorize products - Admin only
   app.post("/api/ai/categorize-products", requireAdmin, async (req, res) => {
     try {
