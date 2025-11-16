@@ -261,6 +261,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return "";
           };
 
+          // Helper to clean currency values (strip $, commas, etc.)
+          const cleanCurrencyValue = (value: string): string => {
+            if (!value) return "0";
+            // Remove dollar signs, commas, and other currency symbols
+            return value.replace(/[$,€£¥]/g, '').trim();
+          };
+
           // Build product name from brand + product + size if available
           const brand = getColumnValue(['brand']);
           const productName = getColumnValue(['product', 'name', 'product name', 'title']);
@@ -277,7 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // PRICE is required (prioritize PRICE column, then healthywaze.com as fallback)
-          const priceValue = getColumnValue([
+          const rawPriceValue = getColumnValue([
             'price',
             'healthywaze.com',
             'healthywazecom',
@@ -286,6 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'selling price',
             'unit price'
           ]);
+          const priceValue = cleanCurrencyValue(rawPriceValue);
           if (!priceValue || parseFloat(priceValue) <= 0) {
             throw new Error("Valid price is required - need 'price' or 'healthywaze.com' column with value > 0");
           }
@@ -465,13 +473,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: fullName,
             description: description,
             price: priceValue,
-            productCost: String(getColumnValue(['cost', 'product cost', 'cost per item', 'supplier cost']) || "0"),
+            productCost: cleanCurrencyValue(getColumnValue(['cost', 'product cost', 'cost per item', 'supplier cost']) || "0"),
             catalogNumber: catalogNumber || undefined,
             upc: upc || undefined,
             imageUrl: imageUrl,
             stock: Number(getColumnValue(['stock', 'inventory', 'quantity', 'qty']) || 100),
             category: getColumnValue(['brand', 'category', 'type']),
-            adSpend: String(getColumnValue(['ad spend', 'ads', 'marketing cost']) || "0"),
+            adSpend: cleanCurrencyValue(getColumnValue(['ad spend', 'ads', 'marketing cost']) || "0"),
             isPublished: true,
           };
 
