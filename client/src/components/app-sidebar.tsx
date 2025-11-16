@@ -6,6 +6,7 @@ import {
   GraduationCap,
   Store,
   Settings,
+  TrendingUp,
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,6 +40,11 @@ const adminItems = [
     title: "Analytics",
     url: "/admin/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Demand Analyzer",
+    url: "/admin/demand-analyzer",
+    icon: TrendingUp,
   },
   {
     title: "Site Settings",

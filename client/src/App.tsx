@@ -16,6 +16,7 @@ import Dashboard from "@/pages/admin/Dashboard";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
 import Analytics from "@/pages/admin/Analytics";
+import DemandAnalyzer from "@/pages/admin/DemandAnalyzer";
 import Tutorial from "@/pages/admin/Tutorial";
 import SiteSettings from "@/pages/admin/SiteSettings";
 import AuthPage from "@/pages/AuthPage";
@@ -52,6 +53,7 @@ function AdminRouter() {
       <ProtectedRoute path="/admin/products" component={Products} requireRole="admin" />
       <ProtectedRoute path="/admin/orders" component={Orders} requireRole="admin" />
       <ProtectedRoute path="/admin/analytics" component={Analytics} requireRole="admin" />
+      <ProtectedRoute path="/admin/demand-analyzer" component={DemandAnalyzer} requireRole="admin" />
       <ProtectedRoute path="/admin/settings" component={SiteSettings} requireRole="admin" />
       <ProtectedRoute path="/admin/tutorial" component={Tutorial} requireRole="admin" />
       <Route component={NotFound} />
