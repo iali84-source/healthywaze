@@ -70,9 +70,12 @@ export function setupAuth(app: Express) {
       return res.status(400).send("Username already exists");
     }
 
+    // SECURITY: Always set role to 'customer' - ignore any role from client
     const user = await storage.createUser({
-      ...req.body,
+      username: req.body.username,
+      email: req.body.email,
       password: await hashPassword(req.body.password),
+      role: 'customer', // Enforced server-side
     });
 
     req.login(user, (err) => {
