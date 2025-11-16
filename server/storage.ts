@@ -23,15 +23,23 @@ import {
   reviews,
 } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 
 const PostgresSessionStore = connectPg(session);
 
+export interface ProductFilters {
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  search?: string;
+}
+
 export interface IStorage {
   // Products
-  getProducts(): Promise<Product[]>;
+  getProducts(filters?: ProductFilters): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
@@ -91,8 +99,74 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Products
-  async getProducts(): Promise<Product[]> {
-    return db.select().from(products);
+  async getProducts(filters?: ProductFilters): Promise<Product[]> {
+    let query = db.select().from(products);
+    
+    // Build WHERE conditions
+    // Always filter to only show published products
+    const conditions = [eq(products.isPublished, true)];
+    
+    if (filters?.category) {
+      conditions.push(eq(products.category, filters.category));
+    }
+    
+    if (filters?.minPrice !== undefined) {
+      conditions.push(sql`CAST(${products.price} AS NUMERIC) >= ${filters.minPrice}`);
+    }
+    
+    if (filters?.maxPrice !== undefined) {
+      conditions.push(sql`CAST(${products.price} AS NUMERIC) <= ${filters.maxPrice}`);
+    }
+    
+    if (filters?.search) {
+      const searchCondition = or(
+        ilike(products.name, `%${filters.search}%`),
+        ilike(products.description, `%${filters.search}%`)
+      );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+    
+    // Apply filters if any
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const allProducts = await query;
+    
+    // If minRating filter is specified, we need to calculate ratings from reviews
+    if (filters?.minRating !== undefined && filters.minRating > 0) {
+      const productIds = allProducts.map(p => p.id);
+      
+      if (productIds.length === 0) {
+        return [];
+      }
+      
+      // Get average ratings for products that have reviews
+      // Use inArray() for proper Drizzle parameter binding
+      const ratingsQuery = await db
+        .select({
+          productId: reviews.productId,
+          avgRating: sql<number>`avg(${reviews.rating})::float`,
+        })
+        .from(reviews)
+        .where(inArray(reviews.productId, productIds))
+        .groupBy(reviews.productId);
+      
+      const ratingsMap = new Map(
+        ratingsQuery.map(r => [r.productId, r.avgRating])
+      );
+      
+      // Filter products by minimum rating
+      // Products without reviews are excluded (cannot meet minRating requirement)
+      return allProducts.filter(p => {
+        const rating = ratingsMap.get(p.id);
+        return rating !== undefined && rating >= filters.minRating!;
+      });
+    }
+    
+    return allProducts;
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
