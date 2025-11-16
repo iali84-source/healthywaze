@@ -11,6 +11,7 @@ import ProductDetail from "@/pages/ProductDetail";
 import Checkout from "@/pages/Checkout";
 import OrderConfirmation from "@/pages/OrderConfirmation";
 import TrackOrder from "@/pages/TrackOrder";
+import CustomerDashboard from "@/pages/CustomerDashboard";
 import Dashboard from "@/pages/admin/Dashboard";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
@@ -35,6 +36,7 @@ function StorefrontRouter() {
       <Route path="/order-confirmation" component={OrderConfirmation} />
       <Route path="/track-order" component={TrackOrder} />
       <Route path="/auth" component={AuthPage} />
+      <ProtectedRoute path="/dashboard" component={CustomerDashboard} requireRole="customer" />
       <Route component={NotFound} />
     </Switch>
   );
@@ -46,12 +48,12 @@ function AdminRouter() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      <ProtectedRoute path="/admin" component={Dashboard} />
-      <ProtectedRoute path="/admin/products" component={Products} />
-      <ProtectedRoute path="/admin/orders" component={Orders} />
-      <ProtectedRoute path="/admin/analytics" component={Analytics} />
-      <ProtectedRoute path="/admin/settings" component={SiteSettings} />
-      <ProtectedRoute path="/admin/tutorial" component={Tutorial} />
+      <ProtectedRoute path="/admin" component={Dashboard} requireRole="admin" />
+      <ProtectedRoute path="/admin/products" component={Products} requireRole="admin" />
+      <ProtectedRoute path="/admin/orders" component={Orders} requireRole="admin" />
+      <ProtectedRoute path="/admin/analytics" component={Analytics} requireRole="admin" />
+      <ProtectedRoute path="/admin/settings" component={SiteSettings} requireRole="admin" />
+      <ProtectedRoute path="/admin/tutorial" component={Tutorial} requireRole="admin" />
       <Route component={NotFound} />
     </Switch>
   );
