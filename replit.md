@@ -17,12 +17,14 @@ The frontend uses React with Wouter for routing and TanStack Query for data fetc
 ### Feature Specifications
 **Storefront:** Includes a responsive product catalog, detailed product pages, persistent shopping cart with guest checkout, Stripe integration, order tracking, and mobile-first design. Conversion optimization features like live social proof, exit-intent popups, free shipping progress bars, urgency timers, "X people viewing" counters, and enhanced low-stock badges are key.
 **Admin Dashboard:** Provides an analytics dashboard with real-time metrics, product management with AI-powered description generation, enhanced order management, and advanced AI-driven performance insights.
-**AI-Powered Features:** An AI Description Generator (OpenAI GPT-5) creates compelling product descriptions, and an AI Performance Analyzer (OpenAI GPT-5) provides actionable insights from product data.
+**AI-Powered Features:** An AI Description Generator (OpenAI GPT-5) creates compelling product descriptions, an AI Product Categorization system organizes products into 23 wellness categories, and an AI Performance Analyzer (OpenAI GPT-5) provides actionable insights from product data.
+**Customer Address Management:** Complete address book system with CRUD operations, saved addresses, default address selection, and separate billing/shipping address support for checkout.
+**Product Review System:** Verified purchase review system enforces that only customers who purchased a product can review it. Features include 1-5 star ratings, review titles and content, helpful vote counts, and automatic verification badges. Security enforced through ownership checks and Zod validation.
 **Automation:** Features include automated inventory management, low stock alerts, persistent carts, one-click product publishing, shipping management, and customer notifications (email/SMS).
 **Site Settings:** An admin interface allows customization of storefront elements like promo banners, hero sections, trust badges, and benefit messages, with real-time updates.
 
 ### System Design Choices
-The system supports a full CRUD API for products and orders, analytics data retrieval, and dedicated endpoints for AI features and Stripe payments. Data models for products, orders, order items, and site settings are clearly defined. Security measures include server-side price validation, payment intent verification, and stock checks.
+The system supports a full CRUD API for products, orders, customer addresses, and product reviews. Analytics data retrieval and dedicated endpoints for AI features (description generation, categorization, performance analysis) and Stripe payments are fully implemented. Data models for products, orders, order items, customer addresses, reviews, and site settings are clearly defined using Drizzle ORM with Zod validation schemas. Security measures include server-side price validation, payment intent verification, stock checks, verified purchase enforcement for reviews, and ownership verification for address/review modifications. All multi-condition database queries use the `and()` operator to prevent filter bypasses.
 
 ## External Dependencies
 
