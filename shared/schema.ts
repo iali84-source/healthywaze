@@ -111,6 +111,20 @@ export const customerAddresses = pgTable("customer_addresses", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+export const reviews = pgTable("reviews", {
+  id: serial("id").primaryKey(),
+  productId: varchar("product_id").notNull().references(() => products.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  orderId: varchar("order_id").references(() => orders.id),
+  rating: integer("rating").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  isVerified: boolean("is_verified").notNull().default(false),
+  helpfulCount: integer("helpful_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
@@ -143,6 +157,17 @@ export const insertCustomerAddressSchema = createInsertSchema(customerAddresses)
   updatedAt: true,
 });
 
+export const insertReviewSchema = createInsertSchema(reviews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  helpfulCount: true,
+}).extend({
+  rating: z.number().int().min(1).max(5),
+  title: z.string().min(5).max(200),
+  content: z.string().min(10).max(2000),
+});
+
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
@@ -155,6 +180,8 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertCustomerAddress = z.infer<typeof insertCustomerAddressSchema>;
 export type CustomerAddress = typeof customerAddresses.$inferSelect;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
+export type Review = typeof reviews.$inferSelect;
 
 export interface CartItem {
   productId: string;

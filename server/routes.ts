@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, insertCustomerAddressSchema, type Order, type OrderItem } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, insertCustomerAddressSchema, insertReviewSchema, type Order, type OrderItem } from "@shared/schema";
 import Stripe from "stripe";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -1082,6 +1082,62 @@ Only respond with the category name, nothing else.`,
       }
 
       await storage.setDefaultAddress(req.user!.id, parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Product Reviews
+  app.get("/api/products/:productId/reviews", async (req, res) => {
+    try {
+      const reviews = await storage.getProductReviews(req.params.productId);
+      res.json(reviews);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/products/:productId/reviews", requireAuth, async (req, res) => {
+    try {
+      const productId = req.params.productId;
+      const userId = req.user!.id;
+
+      // Check if user already reviewed this product
+      const existingReview = await storage.getUserProductReview(productId, userId);
+      if (existingReview) {
+        return res.status(400).json({ message: "You have already reviewed this product" });
+      }
+
+      // Verify user purchased this product
+      const hasPurchased = await storage.hasUserPurchasedProduct(productId, userId);
+      if (!hasPurchased) {
+        return res.status(403).json({ 
+          message: "You can only review products you have purchased" 
+        });
+      }
+
+      // Validate review data
+      const validated = insertReviewSchema.parse({
+        ...req.body,
+        productId,
+        userId,
+        isVerified: true,
+      });
+
+      const review = await storage.createReview(validated);
+      res.status(201).json(review);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/reviews/:id/helpful", async (req, res) => {
+    try {
+      await storage.incrementHelpfulCount(parseInt(req.params.id));
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

@@ -12,15 +12,18 @@ import {
   type InsertUser,
   type CustomerAddress,
   type InsertCustomerAddress,
+  type Review,
+  type InsertReview,
   products,
   orders,
   orderItems,
   siteSettings,
   users,
   customerAddresses,
+  reviews,
 } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 
@@ -65,6 +68,13 @@ export interface IStorage {
   updateCustomerAddress(id: number, address: Partial<InsertCustomerAddress>): Promise<CustomerAddress | undefined>;
   deleteCustomerAddress(id: number): Promise<boolean>;
   setDefaultAddress(userId: number, addressId: number): Promise<void>;
+
+  // Reviews
+  getProductReviews(productId: string): Promise<Review[]>;
+  getUserProductReview(productId: string, userId: number): Promise<Review | undefined>;
+  createReview(review: InsertReview): Promise<Review>;
+  incrementHelpfulCount(reviewId: number): Promise<void>;
+  hasUserPurchasedProduct(productId: string, userId: number): Promise<boolean>;
 
   // Session Store
   sessionStore: session.Store;
@@ -309,6 +319,55 @@ export class DatabaseStorage implements IStorage {
       .update(customerAddresses)
       .set({ isDefault: true, updatedAt: sql`now()` })
       .where(eq(customerAddresses.id, addressId));
+  }
+
+  // Reviews
+  async getProductReviews(productId: string): Promise<Review[]> {
+    return db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.productId, productId))
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async getUserProductReview(productId: string, userId: number): Promise<Review | undefined> {
+    const [review] = await db
+      .select()
+      .from(reviews)
+      .where(and(
+        eq(reviews.productId, productId),
+        eq(reviews.userId, userId)
+      ));
+    return review || undefined;
+  }
+
+  async createReview(review: InsertReview): Promise<Review> {
+    const [created] = await db
+      .insert(reviews)
+      .values(review)
+      .returning();
+    return created;
+  }
+
+  async incrementHelpfulCount(reviewId: number): Promise<void> {
+    await db
+      .update(reviews)
+      .set({ helpfulCount: sql`${reviews.helpfulCount} + 1`, updatedAt: sql`now()` })
+      .where(eq(reviews.id, reviewId));
+  }
+
+  async hasUserPurchasedProduct(productId: string, userId: number): Promise<boolean> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(and(
+        eq(orderItems.productId, productId),
+        eq(orders.userId, userId),
+        eq(orders.status, "completed")
+      ));
+    
+    return result ? result.count > 0 : false;
   }
 }
 
