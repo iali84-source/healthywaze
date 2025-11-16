@@ -34,6 +34,7 @@ export interface IStorage {
 
   // Orders
   getOrders(): Promise<Order[]>;
+  getOrdersByUserId(userId: number): Promise<Order[]>;
   getOrder(id: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: string, order: Partial<Order>): Promise<Order | undefined>;
@@ -110,6 +111,10 @@ export class DatabaseStorage implements IStorage {
   // Orders
   async getOrders(): Promise<Order[]> {
     return db.select().from(orders).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrdersByUserId(userId: number): Promise<Order[]> {
+    return db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
   }
 
   async getOrder(id: string): Promise<Order | undefined> {

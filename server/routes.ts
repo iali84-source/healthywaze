@@ -132,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", async (req, res) => {
+  app.post("/api/products", requireAdmin, async (req, res) => {
     try {
       const validated = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(validated);
@@ -145,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/products/:id", async (req, res) => {
+  app.patch("/api/products/:id", requireAdmin, async (req, res) => {
     try {
       const product = await storage.updateProduct(req.params.id, req.body);
       if (!product) {
@@ -157,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products/:id", async (req, res) => {
+  app.delete("/api/products/:id", requireAdmin, async (req, res) => {
     try {
       const deleted = await storage.deleteProduct(req.params.id);
       if (!deleted) {
@@ -169,8 +169,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Excel Import endpoint
-  app.post("/api/products/import", upload.single('file'), async (req, res) => {
+  // Excel Import endpoint - Admin only
+  app.post("/api/products/import", requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -523,22 +523,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Orders
-  app.get("/api/orders", async (req, res) => {
+  // Orders - filtered by role
+  app.get("/api/orders", requireAuth, async (req, res) => {
     try {
-      const orders = await storage.getOrders();
+      let orders;
+      
+      // Admins see all orders, customers only see their own
+      if (req.user!.role === 'admin') {
+        orders = await storage.getOrders();
+      } else {
+        orders = await storage.getOrdersByUserId(req.user!.id);
+      }
+      
       res.json(orders);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  app.get("/api/orders/:id", async (req, res) => {
+  app.get("/api/orders/:id", requireAuth, async (req, res) => {
     try {
       const order = await storage.getOrder(req.params.id);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
+      
+      // Admins can see any order, customers only their own
+      if (req.user!.role !== 'admin' && order.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       res.json(order);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -704,8 +718,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // SECURITY: Use ONLY server-calculated total, ignore any client-supplied total
+      // Link userId for authenticated users, null for guest checkout
       const validated = insertOrderSchema.parse({
         ...orderData,
+        userId: req.isAuthenticated() ? req.user!.id : null,
         stripePaymentIntentId,
         total: calculatedTotal.toFixed(2),
       });
@@ -757,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/orders/:id", async (req, res) => {
+  app.patch("/api/orders/:id", requireAdmin, async (req, res) => {
     try {
       const order = await storage.updateOrder(req.params.id, req.body);
       if (!order) {
@@ -778,8 +794,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Analytics
-  app.get("/api/analytics", async (req, res) => {
+  // Analytics - Admin only
+  app.get("/api/analytics", requireAdmin, async (req, res) => {
     try {
       const analytics = await storage.getAnalytics();
       res.json(analytics);
@@ -788,8 +804,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI: Generate product description
-  app.post("/api/ai/generate-description", async (req, res) => {
+  // AI: Generate product description - Admin only
+  app.post("/api/ai/generate-description", requireAdmin, async (req, res) => {
     try {
       if (!openai) {
         return res.status(503).json({ 
@@ -827,8 +843,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI: Analyze performance
-  app.post("/api/ai/analyze-performance", async (req, res) => {
+  // AI: Analyze performance - Admin only
+  app.post("/api/ai/analyze-performance", requireAdmin, async (req, res) => {
     try {
       if (!openai) {
         return res.status(503).json({ 
@@ -891,7 +907,7 @@ Keep the analysis practical and actionable for a business owner.`;
     }
   });
 
-  app.patch("/api/site-settings", async (req, res) => {
+  app.patch("/api/site-settings", requireAdmin, async (req, res) => {
     try {
       const validated = insertSiteSettingsSchema.partial().parse(req.body);
       const settings = await storage.updateSiteSettings(validated);
@@ -984,8 +1000,8 @@ Keep the analysis practical and actionable for a business owner.`;
     }
   });
 
-  // Customer Notifications (Email/SMS)
-  app.post("/api/notifications/send", async (req, res) => {
+  // Customer Notifications (Email/SMS) - Admin only
+  app.post("/api/notifications/send", requireAdmin, async (req, res) => {
     try {
       const { orderId, type } = req.body;
 
