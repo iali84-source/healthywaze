@@ -290,25 +290,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error("Valid price is required - need 'price' or 'healthywaze.com' column with value > 0");
           }
 
-          // Description is optional - generate default if missing
-          const description = getColumnValue(['descriptions', 'description', 'desc', 'details']) 
-            || `${fullName} - Premium quality product`;
+          // Get product URL for web scraping
+          const productUrl = getColumnValue(['url', 'link', 'product url', 'web link', 'source']);
 
           // Get catalog number and UPC
           const catalogNumber = getColumnValue(['catalog number', 'catalognumber', 'catalog', 'sku', 'item number']);
           const upc = getColumnValue(['upc', 'upc code', 'barcode']);
 
-          // Get first available image from primary or fallback columns
-          const imageUrl = getColumnValue([
+          // Initialize description and images
+          let description = getColumnValue(['descriptions', 'description', 'desc', 'details']);
+          let imageUrl = getColumnValue([
             'image address primary',
             'image 2',
             'image 3', 
             'image 4',
             'image',
             'image url',
-            'photo',
-            'link'
+            'photo'
           ]);
+
+          // If product URL is provided and no description/image, fetch from web
+          if (productUrl && (!description || !imageUrl)) {
+            try {
+              console.log(`🔍 Fetching product data from: ${productUrl}`);
+              
+              // SECURITY: Validate URL to prevent SSRF attacks
+              let parsedUrl: URL;
+              try {
+                parsedUrl = new URL(productUrl);
+              } catch {
+                throw new Error("Invalid URL format");
+              }
+
+              // Only allow http/https protocols
+              if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+                throw new Error("Only HTTP/HTTPS URLs are allowed");
+              }
+
+              // Block private/internal IP ranges to prevent SSRF
+              const hostname = parsedUrl.hostname.toLowerCase();
+              const blockedPatterns = [
+                /^localhost$/i,
+                /^127\./,
+                /^10\./,
+                /^172\.(1[6-9]|2[0-9]|3[01])\./,
+                /^192\.168\./,
+                /^169\.254\./,
+                /^::1$/,
+                /^::/,                  // IPv6 loopback variants
+                /^::ffff:127\./,       // IPv4-mapped IPv6 loopback  
+                /^::ffff:10\./,        // IPv4-mapped private
+                /^::ffff:192\.168\./,  // IPv4-mapped private
+                /^fc00:/,              // IPv6 ULA
+                /^fd00:/,              // IPv6 ULA
+                /^fe80:/,              // IPv6 link-local
+                /\.local$/i,           // mDNS/local domain
+                /\.internal$/i,        // internal domain
+              ];
+
+              if (blockedPatterns.some(pattern => pattern.test(hostname))) {
+                throw new Error("Cannot fetch from private/internal addresses");
+              }
+              
+              // Additional security: Log URL fetches for audit trail
+              console.log(`🔒 Security check passed for URL: ${parsedUrl.hostname}`);
+              
+              // Fetch the product page with timeout
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+              
+              try {
+                const pageResponse = await fetch(productUrl, {
+                  signal: controller.signal,
+                  headers: {
+                    'User-Agent': 'HealthyWaze-ProductImporter/1.0',
+                  }
+                });
+                clearTimeout(timeoutId);
+
+                if (!pageResponse.ok) {
+                  throw new Error(`Failed to fetch page: ${pageResponse.status}`);
+                }
+                
+                const pageContent = await pageResponse.text();
+                
+                // Use OpenAI to extract product information
+                if (openai && !description) {
+                  console.log(`🤖 Using AI to extract product description...`);
+                  const aiResponse = await openai.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    messages: [
+                      {
+                        role: "system",
+                        content: "You are a product description expert. Extract or generate a compelling, accurate product description from the provided web page content. Focus on benefits, features, and key details. Keep it under 200 words."
+                      },
+                      {
+                        role: "user",
+                        content: `Product name: ${fullName}\n\nWeb page content:\n${pageContent.substring(0, 8000)}`
+                      }
+                    ],
+                    max_tokens: 300,
+                    temperature: 0.7,
+                  });
+                  
+                  description = aiResponse.choices[0]?.message?.content?.trim() || description;
+                  if (description) {
+                    console.log(`✅ AI-generated description created`);
+                  }
+                }
+                
+                // Extract images from page if not provided
+                if (!imageUrl) {
+                  // Helper function to resolve URLs properly
+                  const resolveUrl = (relativeUrl: string, baseUrl: string): string => {
+                    try {
+                      // Handle protocol-relative URLs (//cdn.example.com/image.jpg)
+                      if (relativeUrl.startsWith('//')) {
+                        return `${parsedUrl.protocol}${relativeUrl}`;
+                      }
+                      // Use URL constructor to properly resolve relative/absolute URLs
+                      return new URL(relativeUrl, baseUrl).href;
+                    } catch {
+                      return relativeUrl;
+                    }
+                  };
+
+                  // Look for Open Graph and Twitter card images first (higher quality)
+                  const ogImageRegex = /<meta[^>]+(?:property=["']og:image["']|name=["']twitter:image["'])[^>]+content=["']([^"']+)["']/i;
+                  const ogMatch = ogImageRegex.exec(pageContent);
+                  
+                  if (ogMatch) {
+                    imageUrl = resolveUrl(ogMatch[1], productUrl);
+                    console.log(`🖼️ Found Open Graph/Twitter image`);
+                  } else {
+                    // Fallback: Find product images from HTML
+                    const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+                    let match;
+                    const images: string[] = [];
+                    
+                    while ((match = imgRegex.exec(pageContent)) !== null && images.length < 10) {
+                      const src = match[1];
+                      // Filter out tracking pixels, icons, logos
+                      if (!src.includes('logo') && 
+                          !src.includes('icon') && 
+                          !src.includes('avatar') &&
+                          !src.includes('pixel') &&
+                          !src.includes('tracking') &&
+                          src.length > 20) { // Avoid tiny images
+                        images.push(resolveUrl(src, productUrl));
+                      }
+                    }
+                    
+                    if (images.length > 0) {
+                      imageUrl = images[0];
+                      console.log(`🖼️ Extracted image from page`);
+                    }
+                  }
+                }
+              } finally {
+                clearTimeout(timeoutId);
+              }
+            } catch (error: any) {
+              console.log(`⚠️  Could not fetch from URL: ${error.message}`);
+              // Continue with default values
+            }
+          }
+
+          // Fallback to default description if still missing
+          if (!description) {
+            description = `${fullName} - Premium quality product`;
+          }
 
           const productData = {
             name: fullName,
