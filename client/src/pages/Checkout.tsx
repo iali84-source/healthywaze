@@ -1,42 +1,284 @@
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { useEffect, useState } from 'react';
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CheckoutTrustIndicators } from "@/components/TrustBadges";
 import { FreeShippingBar } from "@/components/ConversionBoosters";
-import { ArrowLeft, Lock, AlertCircle } from "lucide-react";
+import { ArrowLeft, Lock, AlertCircle, Plus, MapPin, Trash2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import type { CartItem } from "@shared/schema";
+import type { CartItem, CustomerAddress } from "@shared/schema";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLIC_KEY 
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY)
   : null;
 
-const CheckoutForm = ({ cartItems, onSuccess }: { cartItems: CartItem[], onSuccess: (orderId: string) => void }) => {
+interface AddressFormData {
+  fullName: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone: string;
+}
+
+const emptyAddress: AddressFormData = {
+  fullName: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  zip: "",
+  country: "United States",
+  phone: "",
+};
+
+const AddressForm = ({ 
+  address, 
+  onChange, 
+  prefix 
+}: { 
+  address: AddressFormData; 
+  onChange: (field: keyof AddressFormData, value: string) => void;
+  prefix: string;
+}) => (
+  <div className="space-y-4">
+    <div>
+      <Label htmlFor={`${prefix}-name`}>Full Name *</Label>
+      <Input
+        id={`${prefix}-name`}
+        type="text"
+        value={address.fullName}
+        onChange={(e) => onChange("fullName", e.target.value)}
+        required
+        data-testid={`input-${prefix}-name`}
+      />
+    </div>
+    <div>
+      <Label htmlFor={`${prefix}-address1`}>Address Line 1 *</Label>
+      <Input
+        id={`${prefix}-address1`}
+        type="text"
+        value={address.addressLine1}
+        onChange={(e) => onChange("addressLine1", e.target.value)}
+        placeholder="Street address"
+        required
+        data-testid={`input-${prefix}-address1`}
+      />
+    </div>
+    <div>
+      <Label htmlFor={`${prefix}-address2`}>Address Line 2</Label>
+      <Input
+        id={`${prefix}-address2`}
+        type="text"
+        value={address.addressLine2}
+        onChange={(e) => onChange("addressLine2", e.target.value)}
+        placeholder="Apartment, suite, etc. (optional)"
+        data-testid={`input-${prefix}-address2`}
+      />
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor={`${prefix}-city`}>City *</Label>
+        <Input
+          id={`${prefix}-city`}
+          type="text"
+          value={address.city}
+          onChange={(e) => onChange("city", e.target.value)}
+          required
+          data-testid={`input-${prefix}-city`}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${prefix}-state`}>State *</Label>
+        <Input
+          id={`${prefix}-state`}
+          type="text"
+          value={address.state}
+          onChange={(e) => onChange("state", e.target.value)}
+          required
+          data-testid={`input-${prefix}-state`}
+        />
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor={`${prefix}-zip`}>ZIP Code *</Label>
+        <Input
+          id={`${prefix}-zip`}
+          type="text"
+          value={address.zip}
+          onChange={(e) => onChange("zip", e.target.value)}
+          required
+          data-testid={`input-${prefix}-zip`}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${prefix}-country`}>Country *</Label>
+        <Input
+          id={`${prefix}-country`}
+          type="text"
+          value={address.country}
+          onChange={(e) => onChange("country", e.target.value)}
+          required
+          data-testid={`input-${prefix}-country`}
+        />
+      </div>
+    </div>
+    <div>
+      <Label htmlFor={`${prefix}-phone`}>Phone Number *</Label>
+      <Input
+        id={`${prefix}-phone`}
+        type="tel"
+        value={address.phone}
+        onChange={(e) => onChange("phone", e.target.value)}
+        required
+        data-testid={`input-${prefix}-phone`}
+      />
+    </div>
+  </div>
+);
+
+const CheckoutForm = ({ 
+  cartItems, 
+  onSuccess 
+}: { 
+  cartItems: CartItem[]; 
+  onSuccess: (orderId: string) => void;
+}) => {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
+  const { user } = useAuth();
+  
   const [customerEmail, setCustomerEmail] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [shippingAddress, setShippingAddress] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Address selection states
+  const [selectedShippingId, setSelectedShippingId] = useState<string>("new");
+  const [selectedBillingId, setSelectedBillingId] = useState<string>("same");
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
+  
+  // New address forms
+  const [shippingAddress, setShippingAddress] = useState<AddressFormData>(emptyAddress);
+  const [billingAddress, setBillingAddress] = useState<AddressFormData>(emptyAddress);
+
+  // Fetch saved addresses for logged-in users
+  const { data: savedAddresses = [] } = useQuery<CustomerAddress[]>({
+    queryKey: ["/api/addresses"],
+    enabled: !!user,
+  });
+
+  // Set default address as selected on load
+  useEffect(() => {
+    const defaultAddress = savedAddresses.find(addr => addr.isDefault);
+    if (defaultAddress && savedAddresses.length > 0) {
+      setSelectedShippingId(defaultAddress.id.toString());
+    }
+  }, [savedAddresses]);
+
+  const updateShippingField = (field: keyof AddressFormData, value: string) => {
+    setShippingAddress(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateBillingField = (field: keyof AddressFormData, value: string) => {
+    setBillingAddress(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getSelectedShippingAddress = (): AddressFormData | null => {
+    if (selectedShippingId === "new") {
+      return shippingAddress;
+    }
+    const saved = savedAddresses.find(a => a.id.toString() === selectedShippingId);
+    if (saved) {
+      return {
+        fullName: saved.fullName,
+        addressLine1: saved.addressLine1,
+        addressLine2: saved.addressLine2 || "",
+        city: saved.city,
+        state: saved.state,
+        zip: saved.zip,
+        country: saved.country,
+        phone: saved.phone || "",
+      };
+    }
+    return null;
+  };
+
+  const getSelectedBillingAddress = (): AddressFormData | null => {
+    if (billingSameAsShipping) {
+      return getSelectedShippingAddress();
+    }
+    if (selectedBillingId === "new") {
+      return billingAddress;
+    }
+    const saved = savedAddresses.find(a => a.id.toString() === selectedBillingId);
+    if (saved) {
+      return {
+        fullName: saved.fullName,
+        addressLine1: saved.addressLine1,
+        addressLine2: saved.addressLine2 || "",
+        city: saved.city,
+        state: saved.state,
+        zip: saved.zip,
+        country: saved.country,
+        phone: saved.phone || "",
+      };
+    }
+    return null;
+  };
+
+  const validateAddress = (addr: AddressFormData | null, type: string): boolean => {
+    if (!addr) {
+      toast({
+        title: "Missing address",
+        description: `Please select or enter a ${type} address`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    const required = ["fullName", "addressLine1", "city", "state", "zip", "country", "phone"];
+    for (const field of required) {
+      if (!addr[field as keyof AddressFormData]) {
+        toast({
+          title: "Incomplete address",
+          description: `Please complete all required ${type} address fields`,
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements || !customerEmail || !customerName || !shippingAddress) {
+    if (!stripe || !elements || !customerEmail) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
         variant: "destructive",
       });
+      return;
+    }
+
+    const shipping = getSelectedShippingAddress();
+    const billing = getSelectedBillingAddress();
+
+    if (!validateAddress(shipping, "shipping") || !validateAddress(billing, "billing")) {
       return;
     }
 
@@ -60,13 +302,24 @@ const CheckoutForm = ({ cartItems, onSuccess }: { cartItems: CartItem[], onSucce
         });
         setIsProcessing(false);
       } else if (paymentIntent && paymentIntent.status === "succeeded") {
-        // SECURITY: Only send customer info and cart items (productId + quantity)
-        // Server will validate prices and calculate total
+        // Send order with structured addresses
         const orderData = {
           customerEmail,
-          customerName,
-          customerPhone: customerPhone || undefined,
-          shippingAddress,
+          customerName: shipping!.fullName,
+          customerPhone: shipping!.phone,
+          shippingAddressLine1: shipping!.addressLine1,
+          shippingAddressLine2: shipping!.addressLine2 || undefined,
+          shippingCity: shipping!.city,
+          shippingState: shipping!.state,
+          shippingZip: shipping!.zip,
+          shippingCountry: shipping!.country,
+          billingSameAsShipping,
+          billingAddressLine1: billing!.addressLine1,
+          billingAddressLine2: billing!.addressLine2 || undefined,
+          billingCity: billing!.city,
+          billingState: billing!.state,
+          billingZip: billing!.zip,
+          billingCountry: billing!.country,
           stripePaymentIntentId: paymentIntent.id,
           items: cartItems.map(item => ({
             productId: item.productId,
@@ -96,7 +349,7 @@ const CheckoutForm = ({ cartItems, onSuccess }: { cartItems: CartItem[], onSucce
         <CardHeader>
           <CardTitle>Contact Information</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div>
             <Label htmlFor="email">Email *</Label>
             <Input
@@ -108,45 +361,145 @@ const CheckoutForm = ({ cartItems, onSuccess }: { cartItems: CartItem[], onSucce
               data-testid="input-email"
             />
           </div>
-          <div>
-            <Label htmlFor="name">Full Name *</Label>
-            <Input
-              id="name"
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              required
-              data-testid="input-name"
-            />
-          </div>
-          <div>
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              data-testid="input-phone"
-            />
-          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Shipping Address</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Shipping Address
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <Label htmlFor="address">Full Address *</Label>
-          <Input
-            id="address"
-            type="text"
-            value={shippingAddress}
-            onChange={(e) => setShippingAddress(e.target.value)}
-            placeholder="123 Main St, City, State, ZIP"
-            required
-            data-testid="input-address"
-          />
+        <CardContent className="space-y-4">
+          {user && savedAddresses.length > 0 && (
+            <div className="space-y-3">
+              <Label>Select saved address or add new</Label>
+              <RadioGroup value={selectedShippingId} onValueChange={setSelectedShippingId}>
+                {savedAddresses.map((addr) => (
+                  <div key={addr.id} className="flex items-start gap-3 p-3 rounded-md border hover-elevate">
+                    <RadioGroupItem 
+                      value={addr.id.toString()} 
+                      id={`shipping-${addr.id}`}
+                      data-testid={`radio-shipping-${addr.id}`}
+                    />
+                    <Label 
+                      htmlFor={`shipping-${addr.id}`} 
+                      className="flex-1 cursor-pointer"
+                    >
+                      <div className="font-medium">{addr.label || "Address"}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {addr.fullName}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {addr.addressLine1}
+                        {addr.addressLine2 && `, ${addr.addressLine2}`}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {addr.city}, {addr.state} {addr.zip}
+                      </div>
+                      {addr.isDefault && (
+                        <div className="text-xs text-primary font-medium mt-1">Default</div>
+                      )}
+                    </Label>
+                  </div>
+                ))}
+                <div className="flex items-center gap-3 p-3 rounded-md border hover-elevate">
+                  <RadioGroupItem value="new" id="shipping-new" data-testid="radio-shipping-new" />
+                  <Label htmlFor="shipping-new" className="cursor-pointer font-medium flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add new address
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
+          
+          {(!user || selectedShippingId === "new") && (
+            <AddressForm 
+              address={shippingAddress} 
+              onChange={updateShippingField}
+              prefix="shipping"
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Billing Address</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="same-as-shipping"
+              checked={billingSameAsShipping}
+              onCheckedChange={(checked) => {
+                setBillingSameAsShipping(checked === true);
+                if (checked) {
+                  setSelectedBillingId("same");
+                } else {
+                  setSelectedBillingId("new");
+                }
+              }}
+              data-testid="checkbox-same-as-shipping"
+            />
+            <Label htmlFor="same-as-shipping" className="cursor-pointer">
+              Same as shipping address
+            </Label>
+          </div>
+
+          {!billingSameAsShipping && (
+            <>
+              {user && savedAddresses.length > 0 && (
+                <div className="space-y-3">
+                  <Label>Select saved address or add new</Label>
+                  <RadioGroup value={selectedBillingId} onValueChange={setSelectedBillingId}>
+                    {savedAddresses.map((addr) => (
+                      <div key={addr.id} className="flex items-start gap-3 p-3 rounded-md border hover-elevate">
+                        <RadioGroupItem 
+                          value={addr.id.toString()} 
+                          id={`billing-${addr.id}`}
+                          data-testid={`radio-billing-${addr.id}`}
+                        />
+                        <Label 
+                          htmlFor={`billing-${addr.id}`} 
+                          className="flex-1 cursor-pointer"
+                        >
+                          <div className="font-medium">{addr.label || "Address"}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {addr.fullName}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {addr.addressLine1}
+                            {addr.addressLine2 && `, ${addr.addressLine2}`}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {addr.city}, {addr.state} {addr.zip}
+                          </div>
+                        </Label>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-3 p-3 rounded-md border hover-elevate">
+                      <RadioGroupItem value="new" id="billing-new" data-testid="radio-billing-new" />
+                      <Label htmlFor="billing-new" className="cursor-pointer font-medium flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add new address
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+              
+              {selectedBillingId === "new" && (
+                <AddressForm 
+                  address={billingAddress} 
+                  onChange={updateBillingField}
+                  prefix="billing"
+                />
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
