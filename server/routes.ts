@@ -926,29 +926,29 @@ Keep the analysis practical and actionable for a business owner.`;
         stock: p.stock,
       }));
 
-      const prompt = `You are a market demand analysis expert for health & wellness e-commerce. Analyze the following product catalog and rank products by market demand potential.
+      const prompt = `You are a market demand analysis expert for health & wellness e-commerce. Analyze this product catalog and rank by market demand.
 
-PRODUCT DATA:
+PRODUCTS:
 ${JSON.stringify(productSummaries, null, 2)}
 
-For each product, return a JSON object with these exact fields. Ensure demandScore, trendScore are numbers 1-10.
-Return ONLY a JSON array, no other text.
+Return a JSON object with a "results" array. For each product provide: productName (exact match), demandScore (1-10), trendScore (1-10), seasonality, competitionLevel (High/Medium/Low), priceOptimization, searchDemand, recommendation, insights.
 
-Return this exact structure for each product, sorted by demandScore highest first:
-[
-  {
-    "productId": "product-id-here",
-    "productName": "exact-product-name-from-list",
-    "demandScore": 8,
-    "trendScore": 9,
-    "seasonality": "Peak months",
-    "competitionLevel": "High/Medium/Low",
-    "priceOptimization": "Is price competitive",
-    "searchDemand": "Search volume estimate",
-    "recommendation": "Marketing action",
-    "insights": "Key insight"
-  }
-]`;
+Response format:
+{
+  "results": [
+    {
+      "productName": "A.VOGEL SEA SALT HERBED 8.8OZ",
+      "demandScore": 8,
+      "trendScore": 9,
+      "seasonality": "Year-round",
+      "competitionLevel": "Medium",
+      "priceOptimization": "Competitive",
+      "searchDemand": "Moderate",
+      "recommendation": "Promote",
+      "insights": "Growing market"
+    }
+  ]
+}`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -975,10 +975,10 @@ Return this exact structure for each product, sorted by demandScore highest firs
       let rawAnalysis = [];
       try {
         const parsedResponse = JSON.parse(content);
-        rawAnalysis = Array.isArray(parsedResponse) ? parsedResponse : (parsedResponse.products || parsedResponse.analysis || []);
-        console.log("Raw analysis from AI:", JSON.stringify(rawAnalysis).substring(0, 500));
+        rawAnalysis = Array.isArray(parsedResponse) ? parsedResponse : (parsedResponse.results || parsedResponse.products || parsedResponse.analysis || []);
+        console.log("AI returned:", rawAnalysis.length > 0 ? `${rawAnalysis.length} products` : "empty results");
       } catch (parseError) {
-        console.error("JSON parse error:", parseError, "Content:", content.substring(0, 300));
+        console.error("JSON parse error:", parseError);
         return res.status(500).json({ message: "Failed to parse AI response" });
       }
 
