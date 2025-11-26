@@ -976,25 +976,40 @@ Return this exact structure for each product, sorted by demandScore highest firs
       try {
         const parsedResponse = JSON.parse(content);
         rawAnalysis = Array.isArray(parsedResponse) ? parsedResponse : (parsedResponse.products || parsedResponse.analysis || []);
+        console.log("Raw analysis from AI:", JSON.stringify(rawAnalysis).substring(0, 500));
       } catch (parseError) {
-        console.error("JSON parse error:", parseError);
+        console.error("JSON parse error:", parseError, "Content:", content.substring(0, 300));
         return res.status(500).json({ message: "Failed to parse AI response" });
       }
 
-      // Create maps for matching: product name -> product id
+      // Create maps for matching: product name -> product id (case-insensitive, substring matching)
       const nameMap = new Map(products.map(p => [p.name.trim().toLowerCase(), p.id]));
 
-      // Match AI results to actual products by name (most reliable method)
+      // Match AI results to actual products with flexible matching
       let analysis = rawAnalysis
-        .filter((item: any) => item && item.productName)
+        .filter((item: any) => item && (item.productName || item.name))
         .map((item: any) => {
-          const productName = String(item.productName || "").trim();
-          const nameLower = productName.toLowerCase();
-          const matchedId = nameMap.get(nameLower) || "";
+          const aiProductName = String(item.productName || item.name || "").trim();
+          const aiNameLower = aiProductName.toLowerCase();
+          
+          // First try exact match
+          let matchedId = nameMap.get(aiNameLower) || "";
+          
+          // If no exact match, try substring matching (AI might have modified the name slightly)
+          if (!matchedId) {
+            for (const [dbName, dbId] of nameMap.entries()) {
+              if (dbName.includes(aiNameLower) || aiNameLower.includes(dbName)) {
+                matchedId = dbId;
+                break;
+              }
+            }
+          }
+          
+          console.log(`Matching: "${aiProductName}" -> ${matchedId ? "matched" : "no match"}`);
           
           return {
             productId: matchedId,
-            productName: productName,
+            productName: aiProductName,
             demandScore: Math.min(10, Math.max(0, Number(item.demandScore) || 5)),
             trendScore: Math.min(10, Math.max(0, Number(item.trendScore) || 5)),
             seasonality: String(item.seasonality || "Year-round"),
@@ -1006,6 +1021,8 @@ Return this exact structure for each product, sorted by demandScore highest firs
           };
         })
         .filter((item: any) => item.productId);
+      
+      console.log(`Analysis complete: ${analysis.length} products matched out of ${rawAnalysis.length} AI results`);
 
       // Explicitly sort by demandScore (highest first)
       analysis.sort((a: any, b: any) => b.demandScore - a.demandScore);
