@@ -61,7 +61,7 @@ export default function DemandAnalyzer() {
         });
       }
     },
-    onError: (error: any) {
+    onError: (error: any) => {
       toast({
         title: "Analysis failed",
         description: error.message || "Failed to analyze product demand",
