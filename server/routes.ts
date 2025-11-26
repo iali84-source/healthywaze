@@ -958,7 +958,7 @@ Return a JSON array of objects with this exact structure:
 Sort by demandScore (highest first). Include ALL products. Be specific and actionable.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -1035,7 +1035,7 @@ Sort by demandScore (highest first). Include ALL products. Be specific and actio
       for (const product of products) {
         try {
           const response = await openai.chat.completions.create({
-            model: "gpt-5",
+            model: "gpt-4o",
             messages: [
               {
                 role: "system",
