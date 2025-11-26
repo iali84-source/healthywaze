@@ -986,26 +986,43 @@ Sort by demandScore (highest first). Include ALL products. Be specific and actio
         ? parsedResponse 
         : parsedResponse.products || parsedResponse.analysis || [];
 
-      // Create a map of actual product IDs for validation
-      const validProductIds = new Set(products.map(p => p.id));
+      // Create maps for ID and name matching
+      const idMap = new Map(products.map(p => [p.id.toLowerCase(), p.id]));
+      const nameMap = new Map(products.map(p => [p.name.toLowerCase(), p.id]));
 
-      // Validate and filter: only include analysis for actual products in database
+      // Validate and enrich: match AI results to actual products
       let analysis = rawAnalysis
-        .map((item: any) => ({
-          productId: item.productId || "",
-          productName: item.productName || "",
-          demandScore: typeof item.demandScore === "number" ? item.demandScore : 0,
-          trendScore: typeof item.trendScore === "number" ? item.trendScore : 0,
-          seasonality: item.seasonality || "Unknown",
-          competitionLevel: item.competitionLevel || "Medium",
-          priceOptimization: item.priceOptimization || "",
-          searchDemand: item.searchDemand || "Unknown",
-          recommendation: item.recommendation || "",
-          insights: item.insights || "",
-        }))
+        .map((item: any) => {
+          // Try to match by ID first (case-insensitive), then by name
+          let matchedId = "";
+          
+          if (item.productId) {
+            const idLower = String(item.productId).toLowerCase();
+            matchedId = idMap.get(idLower) || "";
+          }
+          
+          // Fallback: match by product name
+          if (!matchedId && item.productName) {
+            const nameLower = String(item.productName).toLowerCase();
+            matchedId = nameMap.get(nameLower) || "";
+          }
+          
+          return {
+            productId: matchedId,
+            productName: item.productName || "",
+            demandScore: typeof item.demandScore === "number" ? item.demandScore : 0,
+            trendScore: typeof item.trendScore === "number" ? item.trendScore : 0,
+            seasonality: item.seasonality || "Unknown",
+            competitionLevel: item.competitionLevel || "Medium",
+            priceOptimization: item.priceOptimization || "",
+            searchDemand: item.searchDemand || "Unknown",
+            recommendation: item.recommendation || "",
+            insights: item.insights || "",
+          };
+        })
         .filter((item: any) => {
-          // Only keep items with valid product IDs that exist in our database
-          return item.productId && validProductIds.has(item.productId);
+          // Only keep items with a matched product ID
+          return item.productId;
         });
 
       // Explicitly sort by demandScore (highest first)
