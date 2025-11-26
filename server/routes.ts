@@ -997,7 +997,8 @@ Return this exact structure for each product, sorted by demandScore highest firs
           
           // If no exact match, try substring matching (AI might have modified the name slightly)
           if (!matchedId) {
-            for (const [dbName, dbId] of nameMap.entries()) {
+            const entries = Array.from(nameMap.entries());
+            for (const [dbName, dbId] of entries) {
               if (dbName.includes(aiNameLower) || aiNameLower.includes(dbName)) {
                 matchedId = dbId;
                 break;
