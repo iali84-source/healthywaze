@@ -931,31 +931,24 @@ Keep the analysis practical and actionable for a business owner.`;
 PRODUCT DATA:
 ${JSON.stringify(productSummaries, null, 2)}
 
-For each product, provide a demand analysis considering:
-1. **Trend Score (1-10)**: Current market demand and growth trajectory for this product type
-2. **Seasonality**: When demand peaks (e.g., "January-March for fitness products")
-3. **Competition Level**: High/Medium/Low based on market saturation
-4. **Price Optimization**: Is the price point competitive?
-5. **Search Demand**: Estimated Google search interest for this product category
-6. **Recommendation**: Specific action (e.g., "Promote heavily", "Stock up", "Consider bundling", "Phase out")
+For each product, return a JSON object with these exact fields. Ensure demandScore, trendScore are numbers 1-10.
+Return ONLY a JSON array, no other text.
 
-Return a JSON array of objects with this exact structure:
+Return this exact structure for each product, sorted by demandScore highest first:
 [
   {
-    "productId": "uuid",
-    "productName": "Product Name",
-    "demandScore": 8.5,
+    "productId": "product-id-here",
+    "productName": "exact-product-name-from-list",
+    "demandScore": 8,
     "trendScore": 9,
-    "seasonality": "Peak: January-March (New Year fitness goals)",
-    "competitionLevel": "Medium",
-    "priceOptimization": "Competitive at current price",
-    "searchDemand": "High - 50K+ monthly searches",
-    "recommendation": "Promote heavily in Q1, consider bundle with yoga mats",
-    "insights": "Strong upward trend, capitalize on New Year resolutions"
+    "seasonality": "Peak months",
+    "competitionLevel": "High/Medium/Low",
+    "priceOptimization": "Is price competitive",
+    "searchDemand": "Search volume estimate",
+    "recommendation": "Marketing action",
+    "insights": "Key insight"
   }
-]
-
-Sort by demandScore (highest first). Include ALL products. Be specific and actionable.`;
+]`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -979,51 +972,40 @@ Sort by demandScore (highest first). Include ALL products. Be specific and actio
       }
 
       // Parse the JSON response
-      const parsedResponse = JSON.parse(content);
-      
-      // Handle both array and object with array property
-      let rawAnalysis = Array.isArray(parsedResponse) 
-        ? parsedResponse 
-        : parsedResponse.products || parsedResponse.analysis || [];
+      let rawAnalysis = [];
+      try {
+        const parsedResponse = JSON.parse(content);
+        rawAnalysis = Array.isArray(parsedResponse) ? parsedResponse : (parsedResponse.products || parsedResponse.analysis || []);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        return res.status(500).json({ message: "Failed to parse AI response" });
+      }
 
-      // Create maps for ID and name matching
-      const idMap = new Map(products.map(p => [p.id.toLowerCase(), p.id]));
-      const nameMap = new Map(products.map(p => [p.name.toLowerCase(), p.id]));
+      // Create maps for matching: product name -> product id
+      const nameMap = new Map(products.map(p => [p.name.trim().toLowerCase(), p.id]));
 
-      // Validate and enrich: match AI results to actual products
+      // Match AI results to actual products by name (most reliable method)
       let analysis = rawAnalysis
+        .filter((item: any) => item && item.productName)
         .map((item: any) => {
-          // Try to match by ID first (case-insensitive), then by name
-          let matchedId = "";
-          
-          if (item.productId) {
-            const idLower = String(item.productId).toLowerCase();
-            matchedId = idMap.get(idLower) || "";
-          }
-          
-          // Fallback: match by product name
-          if (!matchedId && item.productName) {
-            const nameLower = String(item.productName).toLowerCase();
-            matchedId = nameMap.get(nameLower) || "";
-          }
+          const productName = String(item.productName || "").trim();
+          const nameLower = productName.toLowerCase();
+          const matchedId = nameMap.get(nameLower) || "";
           
           return {
             productId: matchedId,
-            productName: item.productName || "",
-            demandScore: typeof item.demandScore === "number" ? item.demandScore : 0,
-            trendScore: typeof item.trendScore === "number" ? item.trendScore : 0,
-            seasonality: item.seasonality || "Unknown",
-            competitionLevel: item.competitionLevel || "Medium",
-            priceOptimization: item.priceOptimization || "",
-            searchDemand: item.searchDemand || "Unknown",
-            recommendation: item.recommendation || "",
-            insights: item.insights || "",
+            productName: productName,
+            demandScore: Math.min(10, Math.max(0, Number(item.demandScore) || 5)),
+            trendScore: Math.min(10, Math.max(0, Number(item.trendScore) || 5)),
+            seasonality: String(item.seasonality || "Year-round"),
+            competitionLevel: String(item.competitionLevel || "Medium"),
+            priceOptimization: String(item.priceOptimization || ""),
+            searchDemand: String(item.searchDemand || ""),
+            recommendation: String(item.recommendation || ""),
+            insights: String(item.insights || ""),
           };
         })
-        .filter((item: any) => {
-          // Only keep items with a matched product ID
-          return item.productId;
-        });
+        .filter((item: any) => item.productId);
 
       // Explicitly sort by demandScore (highest first)
       analysis.sort((a: any, b: any) => b.demandScore - a.demandScore);
