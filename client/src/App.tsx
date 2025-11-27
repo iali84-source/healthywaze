@@ -69,6 +69,39 @@ function AdminRouter() {
   );
 }
 
+function AdminLayout() {
+  const { isLoading } = useAuth();
+  const style = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+
+  return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-1 flex-col">
+          <header className="flex h-16 items-center gap-4 border-b px-6">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-4 text-muted-foreground">Loading...</p>
+                </div>
+              </div>
+            ) : (
+              <AdminRouter />
+            )}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
 function App() {
   useEffect(() => {
     if (!import.meta.env.VITE_GA_MEASUREMENT_ID) {
@@ -81,28 +114,11 @@ function App() {
   const isAdminRoute = window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/auth');
 
   if (isAdminRoute) {
-    const style = {
-      "--sidebar-width": "16rem",
-      "--sidebar-width-icon": "3rem",
-    };
-
     return (
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
-            <SidebarProvider style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full">
-                <AppSidebar />
-                <div className="flex flex-1 flex-col">
-                  <header className="flex h-16 items-center gap-4 border-b px-6">
-                    <SidebarTrigger data-testid="button-sidebar-toggle" />
-                  </header>
-                  <main className="flex-1 overflow-auto p-6">
-                    <AdminRouter />
-                  </main>
-                </div>
-              </div>
-            </SidebarProvider>
+            <AdminLayout />
             <Toaster />
           </TooltipProvider>
         </AuthProvider>

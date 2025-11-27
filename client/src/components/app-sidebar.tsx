@@ -20,6 +20,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 const adminItems = [
   {
@@ -81,6 +82,23 @@ const adminItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user, isLoading } = useAuth();
+
+  // Show nothing while loading auth
+  if (isLoading) {
+    return (
+      <Sidebar>
+        <SidebarContent>
+          <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
+        </SidebarContent>
+      </Sidebar>
+    );
+  }
+
+  // Only show admin sidebar if user is admin
+  if (!user || user.role !== 'admin') {
+    return null;
+  }
 
   return (
     <Sidebar>
