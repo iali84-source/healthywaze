@@ -19,6 +19,8 @@ import Analytics from "@/pages/admin/Analytics";
 import DemandAnalyzer from "@/pages/admin/DemandAnalyzer";
 import Tutorial from "@/pages/admin/Tutorial";
 import SiteSettings from "@/pages/admin/SiteSettings";
+import Features from "@/pages/admin/Features";
+import ProductArchive from "@/pages/admin/ProductArchive";
 import AuthPage from "@/pages/AuthPage";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
@@ -51,9 +53,11 @@ function AdminRouter() {
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/admin" component={Dashboard} requireRole="admin" />
       <ProtectedRoute path="/admin/products" component={Products} requireRole="admin" />
+      <ProtectedRoute path="/admin/products/archived" component={ProductArchive} requireRole="admin" />
       <ProtectedRoute path="/admin/orders" component={Orders} requireRole="admin" />
       <ProtectedRoute path="/admin/analytics" component={Analytics} requireRole="admin" />
       <ProtectedRoute path="/admin/demand-analyzer" component={DemandAnalyzer} requireRole="admin" />
+      <ProtectedRoute path="/admin/features" component={Features} requireRole="admin" />
       <ProtectedRoute path="/admin/settings" component={SiteSettings} requireRole="admin" />
       <ProtectedRoute path="/admin/tutorial" component={Tutorial} requireRole="admin" />
       <Route component={NotFound} />

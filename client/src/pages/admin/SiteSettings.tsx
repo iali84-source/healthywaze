@@ -43,7 +43,10 @@ export default function SiteSettings() {
 
   useEffect(() => {
     if (settings) {
-      form.reset(settings);
+      form.reset({
+        ...settings,
+        logoUrl: settings.logoUrl || "",
+      });
     }
   }, [settings, form]);
 

@@ -8,6 +8,7 @@ import {
   Settings,
   TrendingUp,
 } from "lucide-react";
+import { Zap, Layers } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
