@@ -18,6 +18,8 @@ export const products = pgTable("products", {
   sales: integer("sales").notNull().default(0),
   adSpend: decimal("ad_spend", { precision: 10, scale: 2 }).notNull().default("0"),
   productCost: decimal("product_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  profitabilityScore: decimal("profitability_score", { precision: 10, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
