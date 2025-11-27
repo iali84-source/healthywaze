@@ -23,9 +23,27 @@ The frontend uses React with Wouter for routing and TanStack Query for data fetc
 **Product Review System:** Verified purchase review system enforces that only customers who purchased a product can review it. Features include 1-5 star ratings, review titles and content, helpful vote counts, and automatic verification badges. Security enforced through ownership checks and Zod validation.
 **Automation:** Features include automated inventory management, low stock alerts, persistent carts, one-click product publishing, shipping management, and customer notifications (email/SMS).
 **Site Settings:** An admin interface allows customization of storefront elements like promo banners, hero sections, trust badges, and benefit messages, with real-time updates.
+**Revenue Systems (NEW - Nov 27, 2025):**
+  - **Loyalty Program:** Points-based system where customers earn 1 point per $1 spent. Automatic tiering (Bronze 0-999 pts → Silver 1000-2499 pts → Gold 2500-4999 pts → Platinum 5000+ pts) with increasing benefits per tier. Full transaction tracking for earning, redemption, and bonus points.
+  - **Email Automation:** Multi-step sequence framework supporting Welcome, Post-Purchase, Re-engagement, and Abandoned Cart sequences. Each sequence can have multiple steps with configurable delays and HTML templates. Tracking system logs email delivery, opens, and clicks for performance analytics.
+  - **Abandoned Cart Recovery:** Captures cart data when customers leave. Generates unique recovery codes for personalized recovery links. Triggers automated 3-email recovery sequence (1st at 1 hour, 2nd at 24 hours, 3rd at 72 hours) with incentive offers. Tracks conversion back to completed order.
 
 ### System Design Choices
 The system supports a full CRUD API for products, orders, customer addresses, and product reviews. Analytics data retrieval and dedicated endpoints for AI features (description generation, categorization, performance analysis, demand ranking) and Stripe payments are fully implemented. Data models for products, orders, order items, customer addresses, reviews, and site settings are clearly defined using Drizzle ORM with Zod validation schemas. Security measures include server-side price validation, payment intent verification, stock checks, verified purchase enforcement for reviews, and ownership verification for address/review modifications. All multi-condition database queries use the `and()` operator to prevent filter bypasses.
+
+### Revenue System Architecture (Nov 27, 2025)
+**Loyalty Program** - 6 new database methods handle point earning/redemption with automatic tier progression. Points earned on purchase create transaction records. Tier thresholds: Bronze (default) → Silver (1000 pts) → Gold (2500 pts) → Platinum (5000 pts). Each tier level supports future benefits/discounts configuration.
+
+**Email Automation** - Complete sequence management system with: (1) EmailSequence table defining automation types (welcome, post_purchase, abandoned_cart, re_engagement), (2) EmailTemplate table storing multi-step sequences with HTML content and delay timings, (3) CustomerEmailEvent table tracking individual email delivery status and engagement metrics (sent, opened, clicked).
+
+**Abandoned Cart Recovery** - Standalone cart capture system that stores: cart items (JSON), cart total, unique recovery code, and reminder send timestamps. Status progression: abandoned → recovered/converted. Links to completed orders when customer recovers purchase. Integration points ready for 3-email recovery sequence automation.
+
+### Pending Implementation (Turn 2-3)
+- API endpoints to trigger loyalty points on order completion
+- Email sending integration (Resend/SendGrid API)
+- Admin dashboard UI for loyalty tiers, email campaign builder, abandoned cart management
+- Customer-facing loyalty dashboard showing points balance, tier progress, transaction history
+- Abandoned cart recovery email triggers and conversion tracking
 
 ## External Dependencies
 
