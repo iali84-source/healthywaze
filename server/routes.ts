@@ -176,6 +176,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk unpublish products without images - Admin only
+  app.post("/api/products/unpublish-no-images", requireAdmin, async (req, res) => {
+    try {
+      const allProducts = await storage.getProducts({});
+      const productsWithoutImages = allProducts.filter(p => !p.imageUrl || p.imageUrl.trim() === "");
+      
+      let count = 0;
+      for (const product of productsWithoutImages) {
+        await storage.updateProduct(product.id, { isPublished: false });
+        count++;
+      }
+      
+      res.json({ 
+        message: `Successfully unpublished ${count} products without images`,
+        unpublishedCount: count
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Excel Import endpoint - Admin only
   app.post("/api/products/import", requireAdmin, upload.single('file'), async (req, res) => {
     try {

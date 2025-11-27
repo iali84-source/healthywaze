@@ -189,6 +189,27 @@ export default function Products() {
     },
   });
 
+  const unpublishNoImagesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/products/unpublish-no-images", {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Products unpublished",
+        description: `Successfully unpublished ${data.unpublishedCount} products without images`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to unpublish products",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleGenerateDescription = async () => {
     const name = form.getValues("name");
     if (!name) {
@@ -300,6 +321,32 @@ export default function Products() {
                   </>
                 )}
               </Button>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" data-testid="button-unpublish-no-images">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Unpublish Without Images
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Unpublish products without images?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will unpublish all products that don't have an image URL. They won't be visible in your storefront but won't be deleted.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => unpublishNoImagesMutation.mutate()}
+                      disabled={unpublishNoImagesMutation.isPending}
+                    >
+                      {unpublishNoImagesMutation.isPending ? "Unpublishing..." : "Unpublish"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
