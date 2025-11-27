@@ -43,7 +43,7 @@ export function HeroSection() {
           </h1>
           
           <p className="mb-8 sm:mb-10 text-sm sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto px-4 drop-shadow-md" data-testid="text-hero-subheadline">
-            {settings?.heroSubheadline || "Powerful products to help you stay energized, focused, and on track"}
+            {settings?.heroSubheadline || "A Family Trusted Company"}
           </p>
           
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10">
