@@ -23,6 +23,7 @@ import Features from "@/pages/admin/Features";
 import ProductArchive from "@/pages/admin/ProductArchive";
 import GrowthGuide from "@/pages/admin/GrowthGuide";
 import ProductSelection from "@/pages/admin/ProductSelection";
+import DebugDashboard from "@/pages/admin/DebugDashboard";
 import AuthPage from "@/pages/AuthPage";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
@@ -62,6 +63,7 @@ function AdminRouter() {
       <ProtectedRoute path="/admin/demand-analyzer" component={DemandAnalyzer} requireRole="admin" />
       <ProtectedRoute path="/admin/features" component={Features} requireRole="admin" />
       <ProtectedRoute path="/admin/growth-guide" component={GrowthGuide} requireRole="admin" />
+      <ProtectedRoute path="/admin/debug" component={DebugDashboard} requireRole="admin" />
       <ProtectedRoute path="/admin/settings" component={SiteSettings} requireRole="admin" />
       <ProtectedRoute path="/admin/tutorial" component={Tutorial} requireRole="admin" />
       <Route component={NotFound} />
