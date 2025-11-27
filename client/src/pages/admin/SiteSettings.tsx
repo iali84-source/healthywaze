@@ -23,18 +23,18 @@ export default function SiteSettings() {
   const form = useForm({
     resolver: zodResolver(insertSiteSettingsSchema),
     defaultValues: {
-      siteName: "ShopAI",
+      siteName: "Your Trusted Family Loving Remedies",
       logoUrl: "",
       primaryColor: "22 163 74",
       secondaryColor: "234 88 12",
       accentColor: "20 184 166",
       promoBannerEnabled: true,
       promoBannerText: "Free Shipping on Orders Over $75 | 30-Day Money-Back Guarantee",
-      heroHeadline: "Your Wellness Journey\nMade Simple",
-      heroSubheadline: "Powerful products to help you stay energized, focused, and on track",
+      heroHeadline: "Your Trusted Family Loving Remedies",
+      heroSubheadline: "Discover wellness products loved and trusted by families for generations - Stay energized, focused, and on track",
       heroButtonText: "Shop Now",
       trustBadgeEnabled: true,
-      trustBadgeText: "13,000+ Happy Customers",
+      trustBadgeText: "Your Trusted Family Loving Remedies - 13,000+ Happy Families",
       benefitOneText: "Feel Amazing",
       benefitTwoText: "Stay Energized",
       benefitThreeText: "Live Better",
@@ -111,7 +111,7 @@ export default function SiteSettings() {
                   <FormItem>
                     <FormLabel>Site Name</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="ShopAI" data-testid="input-site-name" />
+                      <Input {...field} placeholder="Your Trusted Family Loving Remedies" data-testid="input-site-name" />
                     </FormControl>
                     <FormDescription>Your store's name</FormDescription>
                     <FormMessage />
