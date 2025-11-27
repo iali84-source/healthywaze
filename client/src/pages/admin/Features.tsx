@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { HelpCircle, Zap, DollarSign, Clock, TrendingUp, Users, Mail, MessageSquare, Package, RefreshCw, Lightbulb, Share2, Gift, Search, BarChart3, AlertCircle, Smartphone, Rocket } from "lucide-react";
+import { HelpCircle, Zap, DollarSign, Clock, TrendingUp, Users, Mail, MessageSquare, Package, RefreshCw, Lightbulb, Share2, Gift, Search, BarChart3, AlertCircle, Smartphone, Rocket, ShoppingCart } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Feature {

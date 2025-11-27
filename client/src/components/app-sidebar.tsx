@@ -33,6 +33,11 @@ const adminItems = [
     icon: Package,
   },
   {
+    title: "Archived Products",
+    url: "/admin/products/archived",
+    icon: Layers,
+  },
+  {
     title: "Orders",
     url: "/admin/orders",
     icon: ShoppingCart,
@@ -46,6 +51,11 @@ const adminItems = [
     title: "Demand Analyzer",
     url: "/admin/demand-analyzer",
     icon: TrendingUp,
+  },
+  {
+    title: "Features Manager",
+    url: "/admin/features",
+    icon: Zap,
   },
   {
     title: "Site Settings",
