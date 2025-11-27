@@ -207,6 +207,36 @@ export class DatabaseStorage implements IStorage {
       .where(eq(products.id, id));
   }
 
+  async bulkArchiveProducts(productIds: string[]): Promise<number> {
+    if (productIds.length === 0) return 0;
+    const result = await db
+      .update(products)
+      .set({ isPublished: false })
+      .where(inArray(products.id, productIds));
+    return result.rowCount || 0;
+  }
+
+  async bulkUnarchiveProducts(productIds: string[]): Promise<number> {
+    if (productIds.length === 0) return 0;
+    const result = await db
+      .update(products)
+      .set({ isPublished: true })
+      .where(inArray(products.id, productIds));
+    return result.rowCount || 0;
+  }
+
+  async getArchivedProducts(): Promise<Product[]> {
+    return db.select().from(products).where(eq(products.isPublished, false));
+  }
+
+  async restoreArchivedProducts(): Promise<number> {
+    const result = await db
+      .update(products)
+      .set({ isPublished: true })
+      .where(eq(products.isPublished, false));
+    return result.rowCount || 0;
+  }
+
   // Orders
   async getOrders(): Promise<Order[]> {
     return db.select().from(orders).orderBy(desc(orders.createdAt));

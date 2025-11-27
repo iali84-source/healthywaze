@@ -197,6 +197,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get archived products - Admin only
+  app.get("/api/products/archived", requireAdmin, async (req, res) => {
+    try {
+      const archived = await storage.getArchivedProducts();
+      res.json(archived);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Bulk archive products - Admin only
+  app.post("/api/products/archive", requireAdmin, async (req, res) => {
+    try {
+      const { productIds } = req.body;
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Invalid product IDs" });
+      }
+      const count = await storage.bulkArchiveProducts(productIds);
+      res.json({ message: `Archived ${count} products`, archivedCount: count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Bulk restore archived products - Admin only
+  app.post("/api/products/restore", requireAdmin, async (req, res) => {
+    try {
+      const { productIds } = req.body;
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Invalid product IDs" });
+      }
+      const count = await storage.bulkUnarchiveProducts(productIds);
+      res.json({ message: `Restored ${count} products`, restoredCount: count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Restore all archived products - Admin only
+  app.post("/api/products/restore-all", requireAdmin, async (req, res) => {
+    try {
+      const count = await storage.restoreArchivedProducts();
+      res.json({ message: `Restored all ${count} archived products`, restoredCount: count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Excel Import endpoint - Admin only
   app.post("/api/products/import", requireAdmin, upload.single('file'), async (req, res) => {
     try {
