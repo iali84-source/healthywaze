@@ -41,6 +41,9 @@ export function StorefrontHeader({ cartItemCount, onCartClick, searchQuery, onSe
             <Link href="/about" className="hidden sm:inline-block text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-about">
               About
             </Link>
+            <Link href="/auth" className="hidden sm:inline-block text-xs font-medium text-muted-foreground hover-elevate px-2 py-2 rounded-md" data-testid="link-admin">
+              Admin
+            </Link>
             <Button
               variant="ghost"
               size="icon"
