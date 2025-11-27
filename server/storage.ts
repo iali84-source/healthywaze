@@ -26,6 +26,14 @@ import {
   type InsertCustomerEmailEvent,
   type AbandonedCart,
   type InsertAbandonedCart,
+  type ShippingRate,
+  type InsertShippingRate,
+  type DiscountCode,
+  type InsertDiscountCode,
+  type PromotionCampaign,
+  type InsertPromotionCampaign,
+  type FinancialRecord,
+  type InsertFinancialRecord,
   products,
   orders,
   orderItems,
@@ -39,6 +47,10 @@ import {
   emailTemplates,
   customerEmailEvents,
   abandonedCarts,
+  shippingRates,
+  discountCodes,
+  promotionCampaigns,
+  financialRecords,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -133,6 +145,22 @@ export interface IStorage {
   getAbandonedCartByCode(code: string): Promise<AbandonedCart | undefined>;
   updateAbandonedCartStatus(id: number, status: string): Promise<AbandonedCart | undefined>;
   markCartRecovered(cartId: number, orderId: string): Promise<AbandonedCart | undefined>;
+
+  // Accounting & Financial
+  getShippingRates(carrier?: string): Promise<any[]>;
+  createShippingRate(rate: any): Promise<any>;
+  
+  getDiscountCodes(active?: boolean): Promise<any[]>;
+  getDiscountCode(code: string): Promise<any | undefined>;
+  createDiscountCode(discount: any): Promise<any>;
+  validateDiscountCode(code: string, orderTotal: number): Promise<{ valid: boolean; discount: number }>;
+  
+  getPromotionCampaigns(): Promise<any[]>;
+  createPromotionCampaign(campaign: any): Promise<any>;
+  
+  getFinancialRecords(orderId?: string): Promise<any[]>;
+  createFinancialRecord(record: any): Promise<any>;
+  getFinancialSummary(startDate?: Date, endDate?: Date): Promise<any>;
 
   // Session Store
   sessionStore: session.Store;
@@ -726,6 +754,118 @@ export class DatabaseStorage implements IStorage {
       .where(eq(abandonedCarts.id, cartId))
       .returning();
     return cart || undefined;
+  }
+
+  // Accounting: Shipping Rates
+  async getShippingRates(carrier?: string): Promise<ShippingRate[]> {
+    if (carrier) {
+      return db.select().from(shippingRates).where(eq(shippingRates.carrier, carrier));
+    }
+    return db.select().from(shippingRates).where(eq(shippingRates.isActive, true));
+  }
+
+  async createShippingRate(rate: InsertShippingRate): Promise<ShippingRate> {
+    const [created] = await db.insert(shippingRates).values(rate).returning();
+    return created;
+  }
+
+  // Accounting: Discount Codes
+  async getDiscountCodes(active = true): Promise<DiscountCode[]> {
+    if (active) {
+      return db.select().from(discountCodes).where(eq(discountCodes.isActive, true));
+    }
+    return db.select().from(discountCodes);
+  }
+
+  async getDiscountCode(code: string): Promise<DiscountCode | undefined> {
+    const [discount] = await db
+      .select()
+      .from(discountCodes)
+      .where(eq(discountCodes.code, code));
+    return discount || undefined;
+  }
+
+  async createDiscountCode(discount: InsertDiscountCode): Promise<DiscountCode> {
+    const [created] = await db.insert(discountCodes).values(discount).returning();
+    return created;
+  }
+
+  async validateDiscountCode(code: string, orderTotal: number): Promise<{ valid: boolean; discount: number }> {
+    const discount = await this.getDiscountCode(code);
+    
+    if (!discount || !discount.isActive) {
+      return { valid: false, discount: 0 };
+    }
+
+    if (discount.validUntil && new Date(discount.validUntil) < new Date()) {
+      return { valid: false, discount: 0 };
+    }
+
+    if (discount.maxUses && discount.currentUses >= discount.maxUses) {
+      return { valid: false, discount: 0 };
+    }
+
+    if (discount.minOrderAmount && orderTotal < parseFloat(discount.minOrderAmount.toString())) {
+      return { valid: false, discount: 0 };
+    }
+
+    let discountAmount = 0;
+    if (discount.type === "percentage") {
+      discountAmount = (orderTotal * parseFloat(discount.value.toString())) / 100;
+    } else if (discount.type === "fixed") {
+      discountAmount = parseFloat(discount.value.toString());
+    } else if (discount.type === "free_shipping") {
+      discountAmount = parseFloat(discount.value.toString());
+    }
+
+    return { valid: true, discount: discountAmount };
+  }
+
+  // Accounting: Promotion Campaigns
+  async getPromotionCampaigns(): Promise<PromotionCampaign[]> {
+    return db.select().from(promotionCampaigns).where(eq(promotionCampaigns.isActive, true));
+  }
+
+  async createPromotionCampaign(campaign: InsertPromotionCampaign): Promise<PromotionCampaign> {
+    const [created] = await db.insert(promotionCampaigns).values(campaign).returning();
+    return created;
+  }
+
+  // Accounting: Financial Records
+  async getFinancialRecords(orderId?: string): Promise<FinancialRecord[]> {
+    if (orderId) {
+      return db.select().from(financialRecords).where(eq(financialRecords.orderId, orderId));
+    }
+    return db.select().from(financialRecords).orderBy(desc(financialRecords.createdAt));
+  }
+
+  async createFinancialRecord(record: InsertFinancialRecord): Promise<FinancialRecord> {
+    const [created] = await db.insert(financialRecords).values(record).returning();
+    return created;
+  }
+
+  async getFinancialSummary(startDate?: Date, endDate?: Date): Promise<any> {
+    let query = db.select({
+      totalRevenue: sql`SUM(revenue)`,
+      totalCost: sql`SUM(cost)`,
+      totalShipping: sql`SUM(shipping_cost)`,
+      totalDiscount: sql`SUM(discount_amount)`,
+      totalProfit: sql`SUM(profit)`,
+      averageProfitMargin: sql`AVG(profit_margin)`,
+      transactionCount: sql`COUNT(*)`,
+    }).from(financialRecords);
+
+    if (startDate && endDate) {
+      query = query.where(
+        and(
+          gte(financialRecords.createdAt, startDate),
+          lte(financialRecords.createdAt, endDate)
+        )
+      ) as any;
+    }
+
+    const [result] = await query;
+    return result || { totalRevenue: 0, totalCost: 0, totalProfit: 0 };
   }
 }
 
