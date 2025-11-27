@@ -1820,6 +1820,46 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // Get customer loyalty account
+  app.get("/api/loyalty/account", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const loyaltyAccount = await storage.getLoyaltyAccount(user.id);
+      if (!loyaltyAccount) {
+        // Create account if doesn't exist
+        const newAccount = await storage.createLoyaltyAccount({
+          userId: user.id,
+          totalPoints: 0,
+          tier: "bronze",
+        });
+        return res.json(newAccount);
+      }
+
+      res.json(loyaltyAccount);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get customer loyalty transactions
+  app.get("/api/loyalty/transactions", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const transactions = await storage.getLoyaltyTransactions(user.id);
+      res.json(transactions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
