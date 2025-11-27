@@ -33,6 +33,11 @@ const adminItems = [
     icon: Package,
   },
   {
+    title: "Product Selection",
+    url: "/admin/products/selection",
+    icon: TrendingUp,
+  },
+  {
     title: "Archived Products",
     url: "/admin/products/archived",
     icon: Layers,
