@@ -23,6 +23,11 @@ export default function SiteSettings() {
   const form = useForm({
     resolver: zodResolver(insertSiteSettingsSchema),
     defaultValues: {
+      siteName: "ShopAI",
+      logoUrl: "",
+      primaryColor: "22 163 74",
+      secondaryColor: "234 88 12",
+      accentColor: "20 184 166",
       promoBannerEnabled: true,
       promoBannerText: "Free Shipping on Orders Over $75 | 30-Day Money-Back Guarantee",
       heroHeadline: "Your Wellness Journey\nMade Simple",
@@ -88,6 +93,91 @@ export default function SiteSettings() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Site Branding & Theme</CardTitle>
+              <CardDescription>
+                Customize your site name, logo, and color scheme
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="siteName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="ShopAI" data-testid="input-site-name" />
+                    </FormControl>
+                    <FormDescription>Your store's name</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="logoUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Logo URL</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://..." data-testid="input-logo-url" />
+                    </FormControl>
+                    <FormDescription>Full URL to your logo image</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="primaryColor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Primary Color</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="H S% L%" data-testid="input-primary-color" />
+                      </FormControl>
+                      <FormDescription>Format: H S% L%</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="secondaryColor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Secondary Color</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="H S% L%" data-testid="input-secondary-color" />
+                      </FormControl>
+                      <FormDescription>Format: H S% L%</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="accentColor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Accent Color</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="H S% L%" data-testid="input-accent-color" />
+                      </FormControl>
+                      <FormDescription>Format: H S% L%</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Promotional Banner</CardTitle>
