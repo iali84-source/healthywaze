@@ -204,6 +204,71 @@ export const abandonedCarts = pgTable("abandoned_carts", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Accounting & Financial System
+export const shippingRates = pgTable("shipping_rates", {
+  id: serial("id").primaryKey(),
+  carrier: text("carrier").notNull(), // "USPS", "UPS", "FedEx"
+  serviceType: text("service_type").notNull(), // "standard", "express", "overnight"
+  minWeight: decimal("min_weight", { precision: 8, scale: 2 }).notNull(), // ounces
+  maxWeight: decimal("max_weight", { precision: 8, scale: 2 }).notNull(),
+  baseCost: decimal("base_cost", { precision: 10, scale: 2 }).notNull(),
+  costPerOunce: decimal("cost_per_ounce", { precision: 8, scale: 4 }).notNull(),
+  estimatedDays: integer("estimated_days"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const discountCodes = pgTable("discount_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  type: text("type").notNull(), // "percentage", "fixed", "free_shipping"
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  maxUses: integer("max_uses"),
+  currentUses: integer("current_uses").notNull().default(0),
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }).default("0"),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const promotionCampaigns = pgTable("promotion_campaigns", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  discountCodeId: integer("discount_code_id").references(() => discountCodes.id),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  budget: decimal("budget", { precision: 12, scale: 2 }),
+  budgetSpent: decimal("budget_spent", { precision: 12, scale: 2 }).notNull().default("0"),
+  targetAudience: text("target_audience"), // "all", "new_customers", "repeat"
+  expectedRoi: decimal("expected_roi", { precision: 8, scale: 2 }),
+  actualRoi: decimal("actual_roi", { precision: 8, scale: 2 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const financialRecords = pgTable("financial_records", {
+  id: serial("id").primaryKey(),
+  orderId: varchar("order_id").references(() => orders.id),
+  productId: varchar("product_id").references(() => products.id),
+  recordType: text("record_type").notNull(), // "sale", "refund", "discount", "shipping"
+  revenue: decimal("revenue", { precision: 12, scale: 2 }).notNull().default("0"),
+  cost: decimal("cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  profit: decimal("profit", { precision: 12, scale: 2 }).notNull().default("0"),
+  profitMargin: decimal("profit_margin", { precision: 8, scale: 2 }).notNull().default("0"), // percentage
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  quantity: integer("quantity").notNull().default(1),
+  discountCodeUsed: text("discount_code_used"),
+  shippingCarrier: text("shipping_carrier"),
+  shippingTrackingNumber: text("shipping_tracking_number"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
@@ -279,6 +344,27 @@ export const insertAbandonedCartSchema = createInsertSchema(abandonedCarts).omit
   updatedAt: true,
 });
 
+export const insertShippingRateSchema = createInsertSchema(shippingRates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDiscountCodeSchema = createInsertSchema(discountCodes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPromotionCampaignSchema = createInsertSchema(promotionCampaigns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertFinancialRecordSchema = createInsertSchema(financialRecords).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
@@ -305,6 +391,14 @@ export type InsertCustomerEmailEvent = z.infer<typeof insertCustomerEmailEventSc
 export type CustomerEmailEvent = typeof customerEmailEvents.$inferSelect;
 export type InsertAbandonedCart = z.infer<typeof insertAbandonedCartSchema>;
 export type AbandonedCart = typeof abandonedCarts.$inferSelect;
+export type InsertShippingRate = z.infer<typeof insertShippingRateSchema>;
+export type ShippingRate = typeof shippingRates.$inferSelect;
+export type InsertDiscountCode = z.infer<typeof insertDiscountCodeSchema>;
+export type DiscountCode = typeof discountCodes.$inferSelect;
+export type InsertPromotionCampaign = z.infer<typeof insertPromotionCampaignSchema>;
+export type PromotionCampaign = typeof promotionCampaigns.$inferSelect;
+export type InsertFinancialRecord = z.infer<typeof insertFinancialRecordSchema>;
+export type FinancialRecord = typeof financialRecords.$inferSelect;
 
 export interface CartItem {
   productId: string;
