@@ -112,7 +112,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>
             <div className="flex items-center gap-2">
               <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-primary-foreground text-xs font-bold">
-                TR
+                HW
               </div>
               <span>Admin Dashboard</span>
             </div>
