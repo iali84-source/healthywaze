@@ -14,6 +14,18 @@ import {
   type InsertCustomerAddress,
   type Review,
   type InsertReview,
+  type LoyaltyAccount,
+  type InsertLoyaltyAccount,
+  type LoyaltyTransaction,
+  type InsertLoyaltyTransaction,
+  type EmailSequence,
+  type InsertEmailSequence,
+  type EmailTemplate,
+  type InsertEmailTemplate,
+  type CustomerEmailEvent,
+  type InsertCustomerEmailEvent,
+  type AbandonedCart,
+  type InsertAbandonedCart,
   products,
   orders,
   orderItems,
@@ -21,6 +33,12 @@ import {
   users,
   customerAddresses,
   reviews,
+  loyaltyAccounts,
+  loyaltyTransactions,
+  emailSequences,
+  emailTemplates,
+  customerEmailEvents,
+  abandonedCarts,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -87,6 +105,34 @@ export interface IStorage {
   createReview(review: InsertReview): Promise<Review>;
   incrementHelpfulCount(reviewId: number): Promise<void>;
   hasUserPurchasedProduct(productId: string, userId: number): Promise<boolean>;
+
+  // Loyalty Program
+  getLoyaltyAccount(userId: number): Promise<LoyaltyAccount | undefined>;
+  createLoyaltyAccount(account: InsertLoyaltyAccount): Promise<LoyaltyAccount>;
+  updateLoyaltyAccount(userId: number, updates: Partial<InsertLoyaltyAccount>): Promise<LoyaltyAccount | undefined>;
+  addLoyaltyPoints(userId: number, points: number, type: string, description?: string): Promise<LoyaltyTransaction>;
+  redeemLoyaltyPoints(userId: number, points: number, description?: string): Promise<LoyaltyTransaction>;
+  getLoyaltyTransactions(userId: number): Promise<LoyaltyTransaction[]>;
+
+  // Email Automation
+  getEmailSequences(): Promise<EmailSequence[]>;
+  getEmailSequence(id: number): Promise<EmailSequence | undefined>;
+  createEmailSequence(sequence: InsertEmailSequence): Promise<EmailSequence>;
+  updateEmailSequence(id: number, updates: Partial<InsertEmailSequence>): Promise<EmailSequence | undefined>;
+  
+  getEmailTemplates(sequenceId: number): Promise<EmailTemplate[]>;
+  createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
+  updateEmailTemplate(id: number, updates: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
+
+  trackEmailEvent(event: InsertCustomerEmailEvent): Promise<CustomerEmailEvent>;
+  updateEmailEventStatus(eventId: number, status: string): Promise<CustomerEmailEvent | undefined>;
+
+  // Abandoned Carts
+  createAbandonedCart(cart: InsertAbandonedCart): Promise<AbandonedCart>;
+  getAbandonedCarts(): Promise<AbandonedCart[]>;
+  getAbandonedCartByCode(code: string): Promise<AbandonedCart | undefined>;
+  updateAbandonedCartStatus(id: number, status: string): Promise<AbandonedCart | undefined>;
+  markCartRecovered(cartId: number, orderId: string): Promise<AbandonedCart | undefined>;
 
   // Session Store
   sessionStore: session.Store;
@@ -476,6 +522,210 @@ export class DatabaseStorage implements IStorage {
       ));
     
     return result ? result.count > 0 : false;
+  }
+
+  // Loyalty Program
+  async getLoyaltyAccount(userId: number): Promise<LoyaltyAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(loyaltyAccounts)
+      .where(eq(loyaltyAccounts.userId, userId));
+    return account || undefined;
+  }
+
+  async createLoyaltyAccount(account: InsertLoyaltyAccount): Promise<LoyaltyAccount> {
+    const [created] = await db
+      .insert(loyaltyAccounts)
+      .values(account)
+      .returning();
+    return created;
+  }
+
+  async updateLoyaltyAccount(userId: number, updates: Partial<InsertLoyaltyAccount>): Promise<LoyaltyAccount | undefined> {
+    const [account] = await db
+      .update(loyaltyAccounts)
+      .set({ ...updates, updatedAt: sql`now()` })
+      .where(eq(loyaltyAccounts.userId, userId))
+      .returning();
+    return account || undefined;
+  }
+
+  async addLoyaltyPoints(userId: number, points: number, type: string, description?: string): Promise<LoyaltyTransaction> {
+    // Ensure loyalty account exists
+    let loyaltyAccount = await this.getLoyaltyAccount(userId);
+    if (!loyaltyAccount) {
+      loyaltyAccount = await this.createLoyaltyAccount({ userId, totalPoints: 0, tier: "bronze" });
+    }
+
+    // Add points to account
+    const newTotal = (loyaltyAccount.totalPoints || 0) + points;
+    
+    // Update tier based on points
+    let tier = "bronze";
+    if (newTotal >= 5000) tier = "platinum";
+    else if (newTotal >= 2500) tier = "gold";
+    else if (newTotal >= 1000) tier = "silver";
+
+    await this.updateLoyaltyAccount(userId, { totalPoints: newTotal, tier });
+
+    // Create transaction record
+    const [transaction] = await db
+      .insert(loyaltyTransactions)
+      .values({
+        userId,
+        pointsEarned: points,
+        type,
+        description,
+      })
+      .returning();
+    return transaction;
+  }
+
+  async redeemLoyaltyPoints(userId: number, points: number, description?: string): Promise<LoyaltyTransaction> {
+    const loyaltyAccount = await this.getLoyaltyAccount(userId);
+    if (!loyaltyAccount) {
+      throw new Error("Loyalty account not found");
+    }
+
+    const newTotal = Math.max(0, (loyaltyAccount.totalPoints || 0) - points);
+    await this.updateLoyaltyAccount(userId, {
+      totalPoints: newTotal,
+      redeemedPoints: (loyaltyAccount.redeemedPoints || 0) + points,
+    });
+
+    const [transaction] = await db
+      .insert(loyaltyTransactions)
+      .values({
+        userId,
+        pointsRedeemed: points,
+        type: "redemption",
+        description,
+      })
+      .returning();
+    return transaction;
+  }
+
+  async getLoyaltyTransactions(userId: number): Promise<LoyaltyTransaction[]> {
+    return db
+      .select()
+      .from(loyaltyTransactions)
+      .where(eq(loyaltyTransactions.userId, userId))
+      .orderBy(desc(loyaltyTransactions.createdAt));
+  }
+
+  // Email Automation
+  async getEmailSequences(): Promise<EmailSequence[]> {
+    return db.select().from(emailSequences);
+  }
+
+  async getEmailSequence(id: number): Promise<EmailSequence | undefined> {
+    const [sequence] = await db
+      .select()
+      .from(emailSequences)
+      .where(eq(emailSequences.id, id));
+    return sequence || undefined;
+  }
+
+  async createEmailSequence(sequence: InsertEmailSequence): Promise<EmailSequence> {
+    const [created] = await db
+      .insert(emailSequences)
+      .values(sequence)
+      .returning();
+    return created;
+  }
+
+  async updateEmailSequence(id: number, updates: Partial<InsertEmailSequence>): Promise<EmailSequence | undefined> {
+    const [sequence] = await db
+      .update(emailSequences)
+      .set(updates)
+      .where(eq(emailSequences.id, id))
+      .returning();
+    return sequence || undefined;
+  }
+
+  async getEmailTemplates(sequenceId: number): Promise<EmailTemplate[]> {
+    return db
+      .select()
+      .from(emailTemplates)
+      .where(eq(emailTemplates.sequenceId, sequenceId))
+      .orderBy(emailTemplates.stepNumber);
+  }
+
+  async createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate> {
+    const [created] = await db
+      .insert(emailTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+
+  async updateEmailTemplate(id: number, updates: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined> {
+    const [template] = await db
+      .update(emailTemplates)
+      .set(updates)
+      .where(eq(emailTemplates.id, id))
+      .returning();
+    return template || undefined;
+  }
+
+  async trackEmailEvent(event: InsertCustomerEmailEvent): Promise<CustomerEmailEvent> {
+    const [created] = await db
+      .insert(customerEmailEvents)
+      .values(event)
+      .returning();
+    return created;
+  }
+
+  async updateEmailEventStatus(eventId: number, status: string): Promise<CustomerEmailEvent | undefined> {
+    const [event] = await db
+      .update(customerEmailEvents)
+      .set({ status })
+      .where(eq(customerEmailEvents.id, eventId))
+      .returning();
+    return event || undefined;
+  }
+
+  // Abandoned Carts
+  async createAbandonedCart(cart: InsertAbandonedCart): Promise<AbandonedCart> {
+    const [created] = await db
+      .insert(abandonedCarts)
+      .values(cart)
+      .returning();
+    return created;
+  }
+
+  async getAbandonedCarts(): Promise<AbandonedCart[]> {
+    return db
+      .select()
+      .from(abandonedCarts)
+      .where(eq(abandonedCarts.status, "abandoned"))
+      .orderBy(desc(abandonedCarts.createdAt));
+  }
+
+  async getAbandonedCartByCode(code: string): Promise<AbandonedCart | undefined> {
+    const [cart] = await db
+      .select()
+      .from(abandonedCarts)
+      .where(eq(abandonedCarts.recoveryCode, code));
+    return cart || undefined;
+  }
+
+  async updateAbandonedCartStatus(id: number, status: string): Promise<AbandonedCart | undefined> {
+    const [cart] = await db
+      .update(abandonedCarts)
+      .set({ status, updatedAt: sql`now()` })
+      .where(eq(abandonedCarts.id, id))
+      .returning();
+    return cart || undefined;
+  }
+
+  async markCartRecovered(cartId: number, orderId: string): Promise<AbandonedCart | undefined> {
+    const [cart] = await db
+      .update(abandonedCarts)
+      .set({ status: "converted", convertedOrderId: orderId, updatedAt: sql`now()` })
+      .where(eq(abandonedCarts.id, cartId))
+      .returning();
+    return cart || undefined;
   }
 }
 
