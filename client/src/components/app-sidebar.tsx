@@ -8,7 +8,7 @@ import {
   Settings,
   TrendingUp,
 } from "lucide-react";
-import { Zap, Layers } from "lucide-react"
+import { Zap, Layers, BookMarked } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -56,6 +56,11 @@ const adminItems = [
     title: "Features Manager",
     url: "/admin/features",
     icon: Zap,
+  },
+  {
+    title: "Growth Guide",
+    url: "/admin/growth-guide",
+    icon: BookMarked,
   },
   {
     title: "Site Settings",
