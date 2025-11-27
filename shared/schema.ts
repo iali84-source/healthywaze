@@ -132,6 +132,78 @@ export const reviews = pgTable("reviews", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Loyalty Program - Points & Tiers
+export const loyaltyAccounts = pgTable("loyalty_accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique().references(() => users.id),
+  totalPoints: integer("total_points").notNull().default(0),
+  tier: text("tier").notNull().default("bronze"), // bronze, silver, gold, platinum
+  redeemedPoints: integer("redeemed_points").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const loyaltyTransactions = pgTable("loyalty_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  orderId: varchar("order_id").references(() => orders.id),
+  pointsEarned: integer("points_earned").notNull().default(0),
+  pointsRedeemed: integer("points_redeemed").notNull().default(0),
+  type: text("type").notNull(), // purchase, redemption, bonus, referral
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Email Automation - Sequences & Templates
+export const emailSequences = pgTable("email_sequences", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // "Welcome", "Post-Purchase", "Re-engagement"
+  automationType: text("automation_type").notNull(), // "welcome", "post_purchase", "abandoned_cart", "re_engagement"
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const emailTemplates = pgTable("email_templates", {
+  id: serial("id").primaryKey(),
+  sequenceId: integer("sequence_id").notNull().references(() => emailSequences.id),
+  stepNumber: integer("step_number").notNull(), // 1, 2, 3 for multi-step sequences
+  delayMinutes: integer("delay_minutes").notNull().default(0), // Time after trigger
+  subject: text("subject").notNull(),
+  content: text("content").notNull(), // HTML email content
+  sendCondition: text("send_condition"), // "first_purchase", "after_24h", etc
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const customerEmailEvents = pgTable("customer_email_events", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  sequenceId: integer("sequence_id").notNull().references(() => emailSequences.id),
+  templateId: integer("template_id").notNull().references(() => emailTemplates.id),
+  orderId: varchar("order_id").references(() => orders.id),
+  status: text("status").notNull().default("pending"), // pending, sent, opened, clicked
+  sentAt: timestamp("sent_at"),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Abandoned Carts - For recovery emails
+export const abandonedCarts = pgTable("abandoned_carts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  customerEmail: text("customer_email").notNull(),
+  cartItems: text("cart_items").notNull(), // JSON stringified
+  cartTotal: decimal("cart_total", { precision: 10, scale: 2 }).notNull(),
+  recoveryCode: text("recovery_code").notNull().unique(), // Unique code for recovery link
+  status: text("status").notNull().default("abandoned"), // abandoned, recovered, converted
+  firstReminderSentAt: timestamp("first_reminder_sent_at"),
+  secondReminderSentAt: timestamp("second_reminder_sent_at"),
+  finalReminderSentAt: timestamp("final_reminder_sent_at"),
+  convertedOrderId: varchar("converted_order_id").references(() => orders.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
@@ -175,6 +247,38 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
   content: z.string().min(10).max(2000),
 });
 
+export const insertLoyaltyAccountSchema = createInsertSchema(loyaltyAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoyaltyTransactionSchema = createInsertSchema(loyaltyTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEmailSequenceSchema = createInsertSchema(emailSequences).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCustomerEmailEventSchema = createInsertSchema(customerEmailEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAbandonedCartSchema = createInsertSchema(abandonedCarts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
@@ -189,6 +293,18 @@ export type InsertCustomerAddress = z.infer<typeof insertCustomerAddressSchema>;
 export type CustomerAddress = typeof customerAddresses.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Review = typeof reviews.$inferSelect;
+export type InsertLoyaltyAccount = z.infer<typeof insertLoyaltyAccountSchema>;
+export type LoyaltyAccount = typeof loyaltyAccounts.$inferSelect;
+export type InsertLoyaltyTransaction = z.infer<typeof insertLoyaltyTransactionSchema>;
+export type LoyaltyTransaction = typeof loyaltyTransactions.$inferSelect;
+export type InsertEmailSequence = z.infer<typeof insertEmailSequenceSchema>;
+export type EmailSequence = typeof emailSequences.$inferSelect;
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type InsertCustomerEmailEvent = z.infer<typeof insertCustomerEmailEventSchema>;
+export type CustomerEmailEvent = typeof customerEmailEvents.$inferSelect;
+export type InsertAbandonedCart = z.infer<typeof insertAbandonedCartSchema>;
+export type AbandonedCart = typeof abandonedCarts.$inferSelect;
 
 export interface CartItem {
   productId: string;
