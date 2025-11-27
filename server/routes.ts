@@ -1860,6 +1860,160 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // Accounting: Shipping Rates
+  app.get("/api/accounting/shipping-rates", async (req, res) => {
+    try {
+      const carrier = req.query.carrier as string | undefined;
+      const rates = await storage.getShippingRates(carrier);
+      res.json(rates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/accounting/shipping-rates", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const rate = await storage.createShippingRate(req.body);
+      res.json(rate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Accounting: Discount Codes
+  app.get("/api/accounting/discount-codes", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const active = req.query.active !== "false";
+      const codes = await storage.getDiscountCodes(active);
+      res.json(codes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/accounting/discount-codes/:code", async (req, res) => {
+    try {
+      const discount = await storage.getDiscountCode(req.params.code);
+      res.json(discount || { error: "Not found" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/accounting/discount-codes", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const discount = await storage.createDiscountCode(req.body);
+      res.json(discount);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/accounting/validate-discount", async (req, res) => {
+    try {
+      const { code, orderTotal } = req.body;
+      if (!code || orderTotal === undefined) {
+        return res.status(400).json({ error: "Missing code or orderTotal" });
+      }
+
+      const result = await storage.validateDiscountCode(code, orderTotal);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Accounting: Promotion Campaigns
+  app.get("/api/accounting/campaigns", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const campaigns = await storage.getPromotionCampaigns();
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/accounting/campaigns", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const campaign = await storage.createPromotionCampaign(req.body);
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Accounting: Financial Records
+  app.get("/api/accounting/financial-records", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const orderId = req.query.orderId as string | undefined;
+      const records = await storage.getFinancialRecords(orderId);
+      res.json(records);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/accounting/financial-records", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const record = await storage.createFinancialRecord(req.body);
+      res.json(record);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/accounting/summary", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const summary = await storage.getFinancialSummary(startDate, endDate);
+      res.json(summary);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
