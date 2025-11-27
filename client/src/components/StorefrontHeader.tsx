@@ -18,9 +18,9 @@ export function StorefrontHeader({ cartItemCount, onCartClick, searchQuery, onSe
         <div className="flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-4">
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 hover-elevate rounded-md px-2 sm:px-3 py-2" data-testid="link-home">
             <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <span className="text-xs sm:text-sm font-bold">SA</span>
+              <span className="text-xs sm:text-sm font-bold">TR</span>
             </div>
-            <span className="hidden text-base sm:text-lg font-bold md:inline">ShopAI</span>
+            <span className="hidden text-base sm:text-lg font-bold md:inline">YTFLR</span>
           </Link>
 
           <div className="flex flex-1 items-center justify-center px-1 sm:px-4 max-w-sm sm:max-w-md">
@@ -38,17 +38,6 @@ export function StorefrontHeader({ cartItemCount, onCartClick, searchQuery, onSe
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
-            <Link href="/admin">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 px-2 sm:px-3"
-                data-testid="button-admin"
-              >
-                <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline text-sm">Admin</span>
-              </Button>
-            </Link>
             <Button
               variant="ghost"
               size="icon"
