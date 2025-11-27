@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
+import AboutUs from "@/pages/AboutUs";
 import ProductDetail from "@/pages/ProductDetail";
 import Checkout from "@/pages/Checkout";
 import OrderConfirmation from "@/pages/OrderConfirmation";
@@ -37,6 +38,7 @@ function StorefrontRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/about" component={AboutUs} />
       <Route path="/product/:id" component={ProductDetail} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/order-confirmation" component={OrderConfirmation} />
