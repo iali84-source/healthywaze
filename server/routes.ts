@@ -1642,6 +1642,184 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // REVENUE SYSTEM TESTING ENDPOINTS
+  // Test Loyalty Points - Add points and check tier progression
+  app.post("/api/debug/test-loyalty", requireAdmin, async (req, res) => {
+    try {
+      const testUserId = 1; // Use admin user
+      const pointsToAdd = req.body.points || 500;
+
+      // Add loyalty points
+      const transaction = await storage.addLoyaltyPoints(
+        testUserId,
+        pointsToAdd,
+        "test",
+        `Test earning ${pointsToAdd} points`
+      );
+
+      // Get updated account
+      const account = await storage.getLoyaltyAccount(testUserId);
+      const transactions = await storage.getLoyaltyTransactions(testUserId);
+
+      res.json({
+        success: true,
+        message: "Loyalty points test successful",
+        results: {
+          newTransaction: transaction,
+          currentAccount: account,
+          recentTransactions: transactions.slice(0, 5),
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Test Loyalty Redemption
+  app.post("/api/debug/test-loyalty-redeem", requireAdmin, async (req, res) => {
+    try {
+      const testUserId = 1;
+      const pointsToRedeem = req.body.points || 100;
+
+      // Check current account
+      const beforeAccount = await storage.getLoyaltyAccount(testUserId);
+      if (!beforeAccount) {
+        return res.status(400).json({ error: "No loyalty account found. Create one first with /api/debug/test-loyalty" });
+      }
+
+      // Redeem points
+      const transaction = await storage.redeemLoyaltyPoints(
+        testUserId,
+        pointsToRedeem,
+        `Test redeeming ${pointsToRedeem} points`
+      );
+
+      // Get updated account
+      const afterAccount = await storage.getLoyaltyAccount(testUserId);
+
+      res.json({
+        success: true,
+        message: "Loyalty redemption test successful",
+        results: {
+          beforePoints: beforeAccount.totalPoints,
+          afterPoints: afterAccount?.totalPoints,
+          pointsRedeemed: pointsToRedeem,
+          newTransaction: transaction,
+          updatedAccount: afterAccount,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Test Abandoned Cart Creation
+  app.post("/api/debug/test-abandoned-cart", requireAdmin, async (req, res) => {
+    try {
+      const cartItems = req.body.cartItems || [
+        { productId: "1", name: "Test Product 1", price: "29.99", quantity: 1 },
+      ];
+      const cartTotal = req.body.cartTotal || "29.99";
+
+      // Generate unique recovery code
+      const recoveryCode = `RECOVERY_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+      // Create abandoned cart
+      const cart = await storage.createAbandonedCart({
+        userId: 1,
+        customerEmail: "admin@test.com",
+        cartItems: JSON.stringify(cartItems),
+        cartTotal: cartTotal,
+        recoveryCode: recoveryCode,
+        status: "abandoned",
+      });
+
+      // Retrieve it to verify
+      const retrievedCart = await storage.getAbandonedCartByCode(recoveryCode);
+
+      res.json({
+        success: true,
+        message: "Abandoned cart test successful",
+        results: {
+          createdCart: cart,
+          retrievedCart: retrievedCart,
+          recoveryCode: recoveryCode,
+          recoveryLink: `/recover-cart?code=${recoveryCode}`,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Test Email Sequence Creation
+  app.post("/api/debug/test-email-sequence", requireAdmin, async (req, res) => {
+    try {
+      const sequenceName = req.body.name || "Test Welcome Sequence";
+
+      // Create sequence
+      const sequence = await storage.createEmailSequence({
+        name: sequenceName,
+        automationType: "welcome",
+        isActive: true,
+      });
+
+      // Create email template for sequence
+      const template = await storage.createEmailTemplate({
+        sequenceId: sequence.id,
+        stepNumber: 1,
+        delayMinutes: 0,
+        subject: "Welcome to our store!",
+        content: "<h1>Welcome!</h1><p>Thanks for signing up.</p>",
+        sendCondition: "signup",
+      });
+
+      // Track an email event
+      const event = await storage.trackEmailEvent({
+        userId: 1,
+        sequenceId: sequence.id,
+        templateId: template.id,
+        status: "pending",
+      });
+
+      res.json({
+        success: true,
+        message: "Email sequence test successful",
+        results: {
+          sequence: sequence,
+          template: template,
+          emailEvent: event,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all test data for inspection
+  app.get("/api/debug/test-data", requireAdmin, async (req, res) => {
+    try {
+      const testUserId = 1;
+      
+      const loyaltyAccount = await storage.getLoyaltyAccount(testUserId);
+      const loyaltyTransactions = await storage.getLoyaltyTransactions(testUserId);
+      const abandonedCarts = await storage.getAbandonedCarts();
+      const emailSequences = await storage.getEmailSequences();
+
+      res.json({
+        success: true,
+        data: {
+          loyaltyAccount,
+          loyaltyTransactions: loyaltyTransactions.slice(0, 10),
+          abandonedCarts: abandonedCarts.slice(0, 5),
+          emailSequences,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
