@@ -72,6 +72,11 @@ export const orderItems = pgTable("order_items", {
 
 export const siteSettings = pgTable("site_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  siteName: text("site_name").notNull().default("ShopAI"),
+  logoUrl: text("logo_url"),
+  primaryColor: text("primary_color").notNull().default("22 163 74"),
+  secondaryColor: text("secondary_color").notNull().default("234 88 12"),
+  accentColor: text("accent_color").notNull().default("20 184 166"),
   promoBannerEnabled: boolean("promo_banner_enabled").notNull().default(true),
   promoBannerText: text("promo_banner_text").notNull().default("Free Shipping on Orders Over $75 | 30-Day Money-Back Guarantee"),
   heroHeadline: text("hero_headline").notNull().default("Your Wellness Journey\nMade Simple"),

@@ -45,6 +45,10 @@ export interface IStorage {
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
   incrementProductViews(id: string): Promise<void>;
+  bulkArchiveProducts(productIds: string[]): Promise<number>;
+  bulkUnarchiveProducts(productIds: string[]): Promise<number>;
+  getArchivedProducts(): Promise<Product[]>;
+  restoreArchivedProducts(): Promise<number>;
 
   // Orders
   getOrders(): Promise<Order[]>;
