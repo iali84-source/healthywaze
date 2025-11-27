@@ -26,6 +26,9 @@ interface ProductWithScore {
 export default function ProductSelection() {
   const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [topN, setTopN] = useState(10);
+  const [minProfitMargin, setMinProfitMargin] = useState(20);
+  const [minDemandScore, setMinDemandScore] = useState(0);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["/api/products/analyzed"],
@@ -45,14 +48,18 @@ export default function ProductSelection() {
     },
   });
 
+  const filteredByThresholds = products.filter(
+    (p: any) => p.profitMargin >= minProfitMargin && p.demandScore >= minDemandScore
+  );
+
   const selectTopTenMutation = useMutation({
     mutationFn: async () => {
-      const topTen = products.slice(0, 10).map(p => p.id);
-      const response = await apiRequest("POST", "/api/products/select-featured", { productIds: topTen });
+      const selected = filteredByThresholds.slice(0, topN).map(p => p.id);
+      const response = await apiRequest("POST", "/api/products/select-featured", { productIds: selected });
       return response;
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Top 10 products selected and others archived!" });
+      toast({ title: "Success", description: `Top ${topN} products selected and others archived!` });
       queryClient.invalidateQueries({ queryKey: ["/api/products/analyzed"] });
       setSelectedIds(new Set());
     },
@@ -100,31 +107,75 @@ export default function ProductSelection() {
         </AlertDescription>
       </Alert>
 
-      {/* TOP 10 RECOMMENDED */}
+      {/* FILTER CONTROLS */}
+      <Card className="bg-blue-50 dark:bg-blue-950">
+        <CardHeader>
+          <CardTitle className="text-blue-700 dark:text-blue-300">Filter & Select</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="text-sm font-semibold">Top N Products</label>
+              <div className="flex gap-2 mt-2">
+                {[10, 20, 50].map((n) => (
+                  <Button
+                    key={n}
+                    onClick={() => setTopN(n)}
+                    variant={topN === n ? "default" : "outline"}
+                    size="sm"
+                  >
+                    {n}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-semibold">Min Profit Margin (%)</label>
+              <input
+                type="number"
+                value={minProfitMargin}
+                onChange={(e) => setMinProfitMargin(Number(e.target.value))}
+                className="mt-2 w-full rounded border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold">Min Demand Score</label>
+              <input
+                type="number"
+                value={minDemandScore}
+                onChange={(e) => setMinDemandScore(Number(e.target.value))}
+                className="mt-2 w-full rounded border px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* TOP N RECOMMENDED */}
       <Card className="border-green-600 bg-green-50 dark:bg-green-950">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
                 <CheckCircle2 className="h-5 w-5" />
-                Top 10 Best Products - Recommended to Publish
+                Top {topN} Best Products - Recommended to Publish
               </CardTitle>
               <CardDescription>
-                These products have highest profit margins and demand. Keep these, archive the rest.
+                Filtered by: ≥{minProfitMargin}% profit margin & ≥{minDemandScore} demand score
               </CardDescription>
             </div>
             <Button
               onClick={() => selectTopTenMutation.mutate()}
-              disabled={selectTopTenMutation.isPending}
+              disabled={selectTopTenMutation.isPending || filteredByThresholds.length === 0}
               className="bg-green-600 hover:bg-green-700"
             >
-              {selectTopTenMutation.isPending ? "Selecting..." : "Select These 10 & Archive Rest"}
+              {selectTopTenMutation.isPending ? "Selecting..." : `Select Top ${topN} & Archive Rest`}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3">
-            {topTen.map((product, index) => (
+            {filteredByThresholds.slice(0, topN).map((product: any, index: number) => (
               <div
                 key={product.id}
                 className="flex items-start justify-between gap-4 p-3 rounded-lg border bg-white dark:bg-slate-900"
@@ -165,13 +216,13 @@ export default function ProductSelection() {
       </Card>
 
       {/* REST OF PRODUCTS - ARCHIVE */}
-      {rest.length > 0 && (
+      {filteredByThresholds.slice(topN).length > 0 && (
         <Card className="border-orange-600 bg-orange-50 dark:bg-orange-950">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-orange-700 dark:text-orange-300">
-                  Remaining {rest.length} Products - Recommended to Archive
+                  Remaining {filteredByThresholds.length - topN} Products - Recommended to Archive
                 </CardTitle>
                 <CardDescription>
                   These have lower profitability or demand. Archive to focus on best sellers.
@@ -188,7 +239,7 @@ export default function ProductSelection() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {rest.map((product) => (
+              {filteredByThresholds.slice(topN).map((product: any) => (
                 <div
                   key={product.id}
                   className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-white dark:bg-slate-900"
