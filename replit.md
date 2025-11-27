@@ -1,7 +1,7 @@
-# ShopAI - AI-Powered E-Commerce Platform
+# YourTrustedFamilyShop - AI-Powered E-Commerce Platform
 
 ## Overview
-ShopAI is an AI-powered e-commerce platform designed to help entrepreneurs operate a data-driven online store with minimal daily involvement. It integrates AI for intelligent insights and automation to streamline operations, enabling rapid product testing and efficient management. The platform aims to provide a competitive edge in the e-commerce market by leveraging advanced AI features and comprehensive analytics to maximize sales and minimize operational overhead.
+YourTrustedFamilyShop is an AI-powered e-commerce platform designed to help entrepreneurs operate a data-driven online store with minimal daily involvement. It integrates AI for intelligent insights and automation to streamline operations, enabling rapid product testing and efficient management. The platform aims to provide a competitive edge in the e-commerce market by leveraging advanced AI features and comprehensive analytics to maximize sales and minimize operational overhead.
 
 ## User Preferences
 I prefer simple language and detailed explanations. I want iterative development with clear communication on progress. Ask before making major changes. I prefer functional programming paradigms where applicable and expect clean, well-documented code. Do not make changes to the folder `Z` and do not make changes to the file `Y`.

@@ -74,7 +74,7 @@ export const orderItems = pgTable("order_items", {
 
 export const siteSettings = pgTable("site_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  siteName: text("site_name").notNull().default("ShopAI"),
+  siteName: text("site_name").notNull().default("YourTrustedFamilyShop"),
   logoUrl: text("logo_url"),
   primaryColor: text("primary_color").notNull().default("22 163 74"),
   secondaryColor: text("secondary_color").notNull().default("234 88 12"),
