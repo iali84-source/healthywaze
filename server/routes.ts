@@ -1458,6 +1458,55 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // Product Analysis & Selection
+  app.get("/api/products/analyzed", async (req, res) => {
+    try {
+      const products = await storage.getProducts();
+      res.json(products);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/products/select-featured", requireAdmin, async (req, res) => {
+    try {
+      const { productIds } = req.body;
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ error: "Invalid or empty product IDs" });
+      }
+      
+      const products = await storage.getProducts();
+      for (const product of products) {
+        if (productIds.includes(product.id)) {
+          await storage.updateProduct(product.id, { isFeatured: true, isPublished: true });
+        } else {
+          await storage.updateProduct(product.id, { isPublished: false, isFeatured: false });
+        }
+      }
+      
+      res.json({ success: true, message: `${productIds.length} products featured, rest archived` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/products/archive-multiple", requireAdmin, async (req, res) => {
+    try {
+      const { productIds } = req.body;
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ error: "Invalid or empty product IDs" });
+      }
+      
+      for (const productId of productIds) {
+        await storage.updateProduct(productId, { isPublished: false });
+      }
+      
+      res.json({ success: true, message: `${productIds.length} products archived` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
