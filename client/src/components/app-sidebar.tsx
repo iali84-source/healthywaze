@@ -8,7 +8,7 @@ import {
   Settings,
   TrendingUp,
 } from "lucide-react";
-import { Zap, Layers, BookMarked } from "lucide-react"
+import { Zap, Layers, BookMarked, Wrench } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -77,6 +77,11 @@ const adminItems = [
     title: "AI Tutorial",
     url: "/admin/tutorial",
     icon: GraduationCap,
+  },
+  {
+    title: "Debug & Health",
+    url: "/admin/debug",
+    icon: Wrench,
   },
 ];
 
