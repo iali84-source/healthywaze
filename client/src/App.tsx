@@ -13,10 +13,12 @@ import Checkout from "@/pages/Checkout";
 import OrderConfirmation from "@/pages/OrderConfirmation";
 import TrackOrder from "@/pages/TrackOrder";
 import CustomerDashboard from "@/pages/CustomerDashboard";
+import LoyaltyDashboard from "@/pages/LoyaltyDashboard";
 import Dashboard from "@/pages/admin/Dashboard";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
 import Analytics from "@/pages/admin/Analytics";
+import Accounting from "@/pages/admin/Accounting";
 import DemandAnalyzer from "@/pages/admin/DemandAnalyzer";
 import Tutorial from "@/pages/admin/Tutorial";
 import SiteSettings from "@/pages/admin/SiteSettings";
@@ -45,6 +47,7 @@ function StorefrontRouter() {
       <Route path="/track-order" component={TrackOrder} />
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/dashboard" component={CustomerDashboard} requireRole="customer" />
+      <ProtectedRoute path="/loyalty" component={LoyaltyDashboard} requireRole="customer" />
       <Route component={NotFound} />
     </Switch>
   );
@@ -62,6 +65,7 @@ function AdminRouter() {
       <ProtectedRoute path="/admin/products/archived" component={ProductArchive} requireRole="admin" />
       <ProtectedRoute path="/admin/orders" component={Orders} requireRole="admin" />
       <ProtectedRoute path="/admin/analytics" component={Analytics} requireRole="admin" />
+      <ProtectedRoute path="/admin/accounting" component={Accounting} requireRole="admin" />
       <ProtectedRoute path="/admin/demand-analyzer" component={DemandAnalyzer} requireRole="admin" />
       <ProtectedRoute path="/admin/features" component={Features} requireRole="admin" />
       <ProtectedRoute path="/admin/growth-guide" component={GrowthGuide} requireRole="admin" />
