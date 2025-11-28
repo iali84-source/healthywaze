@@ -38,7 +38,18 @@ The system supports a full CRUD API for products, orders, customer addresses, an
 
 **Abandoned Cart Recovery** - Standalone cart capture system that stores: cart items (JSON), cart total, unique recovery code, and reminder send timestamps. Status progression: abandoned → recovered/converted. Links to completed orders when customer recovers purchase. Integration points ready for 3-email recovery sequence automation.
 
-### Pending Implementation (Turn 2-3)
+### CRITICAL BUG - Next Session Priority
+**LOGIN ERROR: 500 Internal Error (Nov 28, 2025, 9:35 PM)**
+- **Status:** Backend login endpoint `/api/login` is working correctly ✓
+- **Test Result:** Credentials (username: "Imran", password: "Didar@11825") successfully authenticate and return admin account
+- **Issue:** Frontend displaying "500 Internal Error" when login succeeds
+- **Root Cause:** Error handling in `client/src/lib/queryClient.ts` - the `apiRequest` function is throwing an error even on successful login response
+- **Fix Required:** Debug and fix error handling in `apiRequest` function (likely response parsing or error chain issue)
+- **Admin Account:** Exists in database with ID 1, username "Imran", role "admin"
+- **Files to Check:** `client/src/lib/queryClient.ts` (apiRequest function), `client/src/hooks/use-auth.tsx` (error handling)
+
+### Pending Implementation
+- Fix login error handling (HIGHEST PRIORITY)
 - API endpoints to trigger loyalty points on order completion
 - Email sending integration (Resend/SendGrid API)
 - Admin dashboard UI for loyalty tiers, email campaign builder, abandoned cart management
