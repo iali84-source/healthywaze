@@ -1,6 +1,7 @@
 import { Heart, Shield, Users, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { StorefrontFooter } from "@/components/StorefrontFooter";
 
 export default function AboutUs() {
   return (
