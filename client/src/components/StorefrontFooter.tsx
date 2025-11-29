@@ -70,7 +70,7 @@ export function StorefrontFooter() {
             <p className="text-xs text-muted-foreground mb-3">
               Access your admin dashboard
             </p>
-            <Link href="/auth" asChild>
+            <Link href="/auth">
               <Button 
                 variant="default" 
                 size="sm" 
