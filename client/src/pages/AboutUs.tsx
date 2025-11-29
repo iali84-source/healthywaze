@@ -161,15 +161,7 @@ export default function AboutUs() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t mt-16 sm:mt-20">
-        <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-12">
-          <div className="text-center text-sm text-muted-foreground">
-            <p className="mb-2">© 2024 HealthyWaze. A Family Trusted Company.</p>
-            <p>Natural Wellness Solutions Trusted by Families</p>
-          </div>
-        </div>
-      </footer>
+      <StorefrontFooter />
     </div>
   );
 }
