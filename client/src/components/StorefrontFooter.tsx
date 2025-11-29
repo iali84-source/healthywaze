@@ -1,8 +1,9 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 
 export function StorefrontFooter() {
+  const [, setLocation] = useLocation();
   return (
     <footer className="border-t bg-muted/30 py-8 mt-16">
       <div className="container mx-auto px-4">
@@ -75,7 +76,7 @@ export function StorefrontFooter() {
               size="sm" 
               className="w-full"
               data-testid="button-footer-admin"
-              onClick={() => window.location.href = "/auth"}
+              onClick={() => setLocation("/auth")}
             >
               <LogIn className="mr-2 h-4 w-4" />
               Admin Portal
