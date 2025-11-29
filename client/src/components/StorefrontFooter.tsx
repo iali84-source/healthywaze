@@ -70,17 +70,16 @@ export function StorefrontFooter() {
             <p className="text-xs text-muted-foreground mb-3">
               Access your admin dashboard
             </p>
-            <Link href="/auth">
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="w-full"
-                data-testid="button-footer-admin"
-              >
-                <LogIn className="mr-2 h-4 w-4" />
-                Admin Portal
-              </Button>
-            </Link>
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="w-full"
+              data-testid="button-footer-admin"
+              onClick={() => window.location.href = "/auth"}
+            >
+              <LogIn className="mr-2 h-4 w-4" />
+              Admin Portal
+            </Button>
           </div>
         </div>
 
