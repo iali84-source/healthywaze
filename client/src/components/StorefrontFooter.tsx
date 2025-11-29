@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 
 export function StorefrontFooter() {
-  const [, setLocation] = useLocation();
   return (
     <footer className="border-t bg-muted/30 py-8 mt-16">
       <div className="container mx-auto px-4">
@@ -71,16 +70,17 @@ export function StorefrontFooter() {
             <p className="text-xs text-muted-foreground mb-3">
               Access your admin dashboard
             </p>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="w-full"
-              data-testid="button-footer-admin"
-              onClick={() => setLocation("/auth")}
-            >
-              <LogIn className="mr-2 h-4 w-4" />
-              Admin Portal
-            </Button>
+            <Link href="/auth" asChild>
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="w-full"
+                data-testid="button-footer-admin"
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Admin Portal
+              </Button>
+            </Link>
           </div>
         </div>
 
