@@ -21,6 +21,8 @@ const loginSchema = z.object({
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [loginError, setLoginError] = useState<string>("");
+  const [registerError, setRegisterError] = useState<string>("");
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -43,11 +45,21 @@ export default function AuthPage() {
   }
 
   const handleLogin = (data: z.infer<typeof loginSchema>) => {
-    loginMutation.mutate(data);
+    setLoginError("");
+    loginMutation.mutate(data, {
+      onError: (error) => {
+        setLoginError(error.message || "Login didn't work. Please try again.");
+      }
+    });
   };
 
   const handleRegister = (data: z.infer<typeof insertUserSchema>) => {
-    registerMutation.mutate(data);
+    setRegisterError("");
+    registerMutation.mutate(data, {
+      onError: (error) => {
+        setRegisterError(error.message || "Registration didn't work. Please try again.");
+      }
+    });
   };
 
   return (
@@ -79,6 +91,11 @@ export default function AuthPage() {
                 <CardContent>
                   <Form {...loginForm}>
                     <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                      {loginError && (
+                        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded text-destructive text-sm" data-testid="text-login-error">
+                          {loginError}
+                        </div>
+                      )}
                       <FormField
                         control={loginForm.control}
                         name="username"
@@ -143,6 +160,11 @@ export default function AuthPage() {
                 <CardContent>
                   <Form {...registerForm}>
                     <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
+                      {registerError && (
+                        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded text-destructive text-sm" data-testid="text-register-error">
+                          {registerError}
+                        </div>
+                      )}
                       <FormField
                         control={registerForm.control}
                         name="username"
