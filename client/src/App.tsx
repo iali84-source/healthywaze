@@ -34,50 +34,11 @@ import { useAnalytics } from "./hooks/use-analytics";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 
-function StorefrontRouter() {
-  useAnalytics();
-  
-  return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/about" component={AboutUs} />
-      <Route path="/product/:id" component={ProductDetail} />
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/order-confirmation" component={OrderConfirmation} />
-      <Route path="/track-order" component={TrackOrder} />
-      <Route path="/auth" component={AuthPage} />
-      <ProtectedRoute path="/dashboard" component={CustomerDashboard} requireRole="customer" />
-      <ProtectedRoute path="/loyalty" component={LoyaltyDashboard} requireRole="customer" />
-      <Route component={NotFound} />
-    </Switch>
-  );
+function AuthPageWrapper() {
+  return <AuthPage />;
 }
 
-function AdminRouter() {
-  useAnalytics();
-  
-  return (
-    <Switch>
-      <Route path="/auth" component={AuthPage} />
-      <ProtectedRoute path="/admin" component={Dashboard} requireRole="admin" />
-      <ProtectedRoute path="/admin/products" component={Products} requireRole="admin" />
-      <ProtectedRoute path="/admin/products/selection" component={ProductSelection} requireRole="admin" />
-      <ProtectedRoute path="/admin/products/archived" component={ProductArchive} requireRole="admin" />
-      <ProtectedRoute path="/admin/orders" component={Orders} requireRole="admin" />
-      <ProtectedRoute path="/admin/analytics" component={Analytics} requireRole="admin" />
-      <ProtectedRoute path="/admin/accounting" component={Accounting} requireRole="admin" />
-      <ProtectedRoute path="/admin/demand-analyzer" component={DemandAnalyzer} requireRole="admin" />
-      <ProtectedRoute path="/admin/features" component={Features} requireRole="admin" />
-      <ProtectedRoute path="/admin/growth-guide" component={GrowthGuide} requireRole="admin" />
-      <ProtectedRoute path="/admin/debug" component={DebugDashboard} requireRole="admin" />
-      <ProtectedRoute path="/admin/settings" component={SiteSettings} requireRole="admin" />
-      <ProtectedRoute path="/admin/tutorial" component={Tutorial} requireRole="admin" />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function AdminLayout() {
+function AdminLayoutWrapper() {
   const { isLoading } = useAuth();
   const style = {
     "--sidebar-width": "16rem",
@@ -101,7 +62,7 @@ function AdminLayout() {
                 </div>
               </div>
             ) : (
-              <AdminRouter />
+              <UnifiedAdminRouter />
             )}
           </main>
         </div>
@@ -110,9 +71,28 @@ function AdminLayout() {
   );
 }
 
+function UnifiedAdminRouter() {
+  return (
+    <Switch>
+      <ProtectedRoute path="/admin" component={Dashboard} requireRole="admin" />
+      <ProtectedRoute path="/admin/products" component={Products} requireRole="admin" />
+      <ProtectedRoute path="/admin/products/selection" component={ProductSelection} requireRole="admin" />
+      <ProtectedRoute path="/admin/products/archived" component={ProductArchive} requireRole="admin" />
+      <ProtectedRoute path="/admin/orders" component={Orders} requireRole="admin" />
+      <ProtectedRoute path="/admin/analytics" component={Analytics} requireRole="admin" />
+      <ProtectedRoute path="/admin/accounting" component={Accounting} requireRole="admin" />
+      <ProtectedRoute path="/admin/demand-analyzer" component={DemandAnalyzer} requireRole="admin" />
+      <ProtectedRoute path="/admin/features" component={Features} requireRole="admin" />
+      <ProtectedRoute path="/admin/growth-guide" component={GrowthGuide} requireRole="admin" />
+      <ProtectedRoute path="/admin/debug" component={DebugDashboard} requireRole="admin" />
+      <ProtectedRoute path="/admin/settings" component={SiteSettings} requireRole="admin" />
+      <ProtectedRoute path="/admin/tutorial" component={Tutorial} requireRole="admin" />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
 function App() {
-  const [location] = useLocation();
-  
   useEffect(() => {
     if (!import.meta.env.VITE_GA_MEASUREMENT_ID) {
       console.warn('Missing required Google Analytics key: VITE_GA_MEASUREMENT_ID');
@@ -121,26 +101,32 @@ function App() {
     }
   }, []);
 
-  const isAdminRoute = location.startsWith('/admin') || location.startsWith('/auth');
-
-  if (isAdminRoute) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TooltipProvider>
-            <AdminLayout />
-            <Toaster />
-          </TooltipProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    );
-  }
+  useAnalytics();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <StorefrontRouter />
+          <Switch>
+            {/* Auth route - can be accessed from anywhere */}
+            <Route path="/auth" component={AuthPageWrapper} />
+            
+            {/* Admin routes */}
+            <Route path="/admin/*" component={AdminLayoutWrapper} />
+            
+            {/* Storefront routes */}
+            <Route path="/" component={Home} />
+            <Route path="/about" component={AboutUs} />
+            <Route path="/product/:id" component={ProductDetail} />
+            <Route path="/checkout" component={Checkout} />
+            <Route path="/order-confirmation" component={OrderConfirmation} />
+            <Route path="/track-order" component={TrackOrder} />
+            <ProtectedRoute path="/dashboard" component={CustomerDashboard} requireRole="customer" />
+            <ProtectedRoute path="/loyalty" component={LoyaltyDashboard} requireRole="customer" />
+            
+            {/* 404 */}
+            <Route component={NotFound} />
+          </Switch>
           <Toaster />
         </TooltipProvider>
       </AuthProvider>
