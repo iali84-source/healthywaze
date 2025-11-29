@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -111,6 +111,8 @@ function AdminLayout() {
 }
 
 function App() {
+  const [location] = useLocation();
+  
   useEffect(() => {
     if (!import.meta.env.VITE_GA_MEASUREMENT_ID) {
       console.warn('Missing required Google Analytics key: VITE_GA_MEASUREMENT_ID');
@@ -119,7 +121,7 @@ function App() {
     }
   }, []);
 
-  const isAdminRoute = window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/auth');
+  const isAdminRoute = location.startsWith('/admin') || location.startsWith('/auth');
 
   if (isAdminRoute) {
     return (
