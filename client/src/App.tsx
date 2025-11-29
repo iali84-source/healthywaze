@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,12 +34,24 @@ import { useAnalytics } from "./hooks/use-analytics";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 
-function AuthPageWrapper() {
-  return <AuthPage />;
-}
+function AdminPage() {
+  const { isLoading, user } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user || user.role !== 'admin') {
+    return <Redirect to="/auth" />;
+  }
 
-function AdminLayoutWrapper() {
-  const { isLoading } = useAuth();
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -54,16 +66,7 @@ function AdminLayoutWrapper() {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
           </header>
           <main className="flex-1 overflow-auto p-6">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                  <p className="mt-4 text-muted-foreground">Loading...</p>
-                </div>
-              </div>
-            ) : (
-              <UnifiedAdminRouter />
-            )}
+            <AdminPageRouter />
           </main>
         </div>
       </div>
@@ -71,22 +74,22 @@ function AdminLayoutWrapper() {
   );
 }
 
-function UnifiedAdminRouter() {
+function AdminPageRouter() {
   return (
     <Switch>
-      <ProtectedRoute path="/admin" component={Dashboard} requireRole="admin" />
-      <ProtectedRoute path="/admin/products" component={Products} requireRole="admin" />
-      <ProtectedRoute path="/admin/products/selection" component={ProductSelection} requireRole="admin" />
-      <ProtectedRoute path="/admin/products/archived" component={ProductArchive} requireRole="admin" />
-      <ProtectedRoute path="/admin/orders" component={Orders} requireRole="admin" />
-      <ProtectedRoute path="/admin/analytics" component={Analytics} requireRole="admin" />
-      <ProtectedRoute path="/admin/accounting" component={Accounting} requireRole="admin" />
-      <ProtectedRoute path="/admin/demand-analyzer" component={DemandAnalyzer} requireRole="admin" />
-      <ProtectedRoute path="/admin/features" component={Features} requireRole="admin" />
-      <ProtectedRoute path="/admin/growth-guide" component={GrowthGuide} requireRole="admin" />
-      <ProtectedRoute path="/admin/debug" component={DebugDashboard} requireRole="admin" />
-      <ProtectedRoute path="/admin/settings" component={SiteSettings} requireRole="admin" />
-      <ProtectedRoute path="/admin/tutorial" component={Tutorial} requireRole="admin" />
+      <Route path="/admin" component={Dashboard} />
+      <Route path="/admin/products" component={Products} />
+      <Route path="/admin/products/selection" component={ProductSelection} />
+      <Route path="/admin/products/archived" component={ProductArchive} />
+      <Route path="/admin/orders" component={Orders} />
+      <Route path="/admin/analytics" component={Analytics} />
+      <Route path="/admin/accounting" component={Accounting} />
+      <Route path="/admin/demand-analyzer" component={DemandAnalyzer} />
+      <Route path="/admin/features" component={Features} />
+      <Route path="/admin/growth-guide" component={GrowthGuide} />
+      <Route path="/admin/debug" component={DebugDashboard} />
+      <Route path="/admin/settings" component={SiteSettings} />
+      <Route path="/admin/tutorial" component={Tutorial} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -108,11 +111,11 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <Switch>
-            {/* Auth route - can be accessed from anywhere */}
-            <Route path="/auth" component={AuthPageWrapper} />
+            {/* Auth route */}
+            <Route path="/auth" component={AuthPage} />
             
-            {/* Admin routes */}
-            <Route path="/admin/*" component={AdminLayoutWrapper} />
+            {/* Admin routes - catch all /admin paths */}
+            <Route path="/admin/:rest*" component={AdminPage} />
             
             {/* Storefront routes */}
             <Route path="/" component={Home} />
