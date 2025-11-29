@@ -29,9 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
+    refetch,
   } = useQuery<SelectUser | undefined, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 
   const loginMutation = useMutation({
@@ -41,10 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       setTimeout(() => {
         setLocation(user.role === "admin" ? "/admin" : "/dashboard");
-      }, 100);
+      }, 50);
     },
     onError: (error: Error) => {
       toast({
