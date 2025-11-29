@@ -114,8 +114,19 @@ function App() {
             {/* Auth route */}
             <Route path="/auth" component={AuthPage} />
             
-            {/* Admin routes - catch all /admin paths */}
-            <Route path="/admin/:rest*" component={AdminPage} />
+            {/* Admin routes - match any /admin path */}
+            <Route path="/admin" component={AdminPage} />
+            <Route path="/admin/products" component={AdminPage} />
+            <Route path="/admin/products/:id" component={AdminPage} />
+            <Route path="/admin/orders" component={AdminPage} />
+            <Route path="/admin/analytics" component={AdminPage} />
+            <Route path="/admin/accounting" component={AdminPage} />
+            <Route path="/admin/demand-analyzer" component={AdminPage} />
+            <Route path="/admin/features" component={AdminPage} />
+            <Route path="/admin/growth-guide" component={AdminPage} />
+            <Route path="/admin/debug" component={AdminPage} />
+            <Route path="/admin/settings" component={AdminPage} />
+            <Route path="/admin/tutorial" component={AdminPage} />
             
             {/* Storefront routes */}
             <Route path="/" component={Home} />
