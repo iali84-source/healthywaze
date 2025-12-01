@@ -225,10 +225,10 @@ export default function AuthPage() {
       <div className="hidden lg:flex flex-1 bg-primary items-center justify-center p-12">
         <div className="max-w-md text-primary-foreground">
           <h2 className="text-4xl font-bold mb-6">
-            AI-Powered E-Commerce Platform
+            Trusted Wellness, Made Simple
           </h2>
           <p className="text-xl mb-8 text-primary-foreground/90">
-            Manage your dropshipping business with intelligent automation and data-driven insights
+            Bring your family's wellness story to the world with a platform built on trust, not hype
           </p>
           
           <div className="space-y-6">
@@ -237,9 +237,9 @@ export default function AuthPage() {
                 <ShoppingBag className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Smart Product Testing</h3>
+                <h3 className="font-semibold text-lg mb-1">Family-Tested Products</h3>
                 <p className="text-primary-foreground/80">
-                  AI-driven insights to identify winning products quickly
+                  Curate and sell products your family and community actually trusts
                 </p>
               </div>
             </div>
@@ -251,7 +251,7 @@ export default function AuthPage() {
               <div>
                 <h3 className="font-semibold text-lg mb-1">Real-Time Analytics</h3>
                 <p className="text-primary-foreground/80">
-                  Track performance metrics and optimize your strategy
+                  See what resonates with customers and scale what works
                 </p>
               </div>
             </div>
@@ -261,9 +261,9 @@ export default function AuthPage() {
                 <Zap className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Automated Operations</h3>
+                <h3 className="font-semibold text-lg mb-1">Streamlined Operations</h3>
                 <p className="text-primary-foreground/80">
-                  Streamline inventory, orders, and customer communications
+                  Focus on what matters—your customers—we handle the rest
                 </p>
               </div>
             </div>

@@ -74,7 +74,7 @@ const adminItems = [
     icon: Settings,
   },
   {
-    title: "AI Tutorial",
+    title: "Getting Started",
     url: "/admin/tutorial",
     icon: GraduationCap,
   },
