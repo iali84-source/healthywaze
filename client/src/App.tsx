@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import AboutUs from "@/pages/AboutUs";
+import Contact from "@/pages/Contact";
 import ProductDetail from "@/pages/ProductDetail";
 import Checkout from "@/pages/Checkout";
 import OrderConfirmation from "@/pages/OrderConfirmation";
@@ -135,6 +136,7 @@ function App() {
             {/* Storefront routes */}
             <Route path="/" component={Home} />
             <Route path="/about" component={AboutUs} />
+            <Route path="/contact" component={Contact} />
             <Route path="/product/:id" component={ProductDetail} />
             <Route path="/checkout" component={Checkout} />
             <Route path="/order-confirmation" component={OrderConfirmation} />

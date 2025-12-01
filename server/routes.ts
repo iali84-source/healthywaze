@@ -2014,6 +2014,45 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // Contact form endpoint
+  app.post("/api/contact", async (req, res) => {
+    try {
+      const contactSchema = z.object({
+        name: z.string().min(2),
+        email: z.string().email(),
+        subject: z.string().min(5),
+        message: z.string().min(10),
+      });
+
+      const data = contactSchema.parse(req.body);
+
+      // Log contact message (store in memory for now)
+      const contact = {
+        id: Date.now().toString(),
+        ...data,
+        receivedAt: new Date().toISOString(),
+      };
+
+      console.log("📧 CONTACT FORM SUBMISSION");
+      console.log(`From: ${data.name} <${data.email}>`);
+      console.log(`Subject: ${data.subject}`);
+      console.log(`Message: ${data.message}`);
+      console.log("---");
+      console.log("ℹ️  To send emails, set up Resend or SendGrid integration.");
+
+      res.json({
+        success: true,
+        message: "Your message has been received. We'll get back to you soon!",
+        id: contact.id,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid contact form data", details: error.errors });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
