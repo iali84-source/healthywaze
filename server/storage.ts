@@ -34,6 +34,12 @@ import {
   type InsertPromotionCampaign,
   type FinancialRecord,
   type InsertFinancialRecord,
+  type Newsletter,
+  type InsertNewsletter,
+  type NewsletterSubscriber,
+  type InsertNewsletterSubscriber,
+  type NewsletterEvent,
+  type InsertNewsletterEvent,
   products,
   orders,
   orderItems,
@@ -51,6 +57,9 @@ import {
   discountCodes,
   promotionCampaigns,
   financialRecords,
+  newsletters,
+  newsletterSubscribers,
+  newsletterEvents,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -161,6 +170,20 @@ export interface IStorage {
   getFinancialRecords(orderId?: string): Promise<any[]>;
   createFinancialRecord(record: any): Promise<any>;
   getFinancialSummary(startDate?: Date, endDate?: Date): Promise<any>;
+
+  // Newsletter System
+  getNewsletters(): Promise<Newsletter[]>;
+  getNewsletter(id: number): Promise<Newsletter | undefined>;
+  createNewsletter(newsletter: InsertNewsletter): Promise<Newsletter>;
+  updateNewsletter(id: number, updates: Partial<InsertNewsletter>): Promise<Newsletter | undefined>;
+  deleteNewsletter(id: number): Promise<boolean>;
+
+  getNewsletterSubscribers(category?: string): Promise<NewsletterSubscriber[]>;
+  subscribeToNewsletter(subscriber: InsertNewsletterSubscriber): Promise<NewsletterSubscriber>;
+  unsubscribeFromNewsletter(email: string): Promise<boolean>;
+
+  trackNewsletterEvent(event: InsertNewsletterEvent): Promise<NewsletterEvent>;
+  getNewsletterStats(newsletterId: number): Promise<any>;
 
   // Session Store
   sessionStore: session.Store;
@@ -866,6 +889,79 @@ export class DatabaseStorage implements IStorage {
 
     const [result] = await query;
     return result || { totalRevenue: 0, totalCost: 0, totalProfit: 0 };
+  }
+
+  // Newsletter System
+  async getNewsletters(): Promise<Newsletter[]> {
+    return db.select().from(newsletters).orderBy(desc(newsletters.createdAt));
+  }
+
+  async getNewsletter(id: number): Promise<Newsletter | undefined> {
+    const [newsletter] = await db.select().from(newsletters).where(eq(newsletters.id, id));
+    return newsletter || undefined;
+  }
+
+  async createNewsletter(insertData: InsertNewsletter): Promise<Newsletter> {
+    const [newsletter] = await db.insert(newsletters).values(insertData).returning();
+    return newsletter;
+  }
+
+  async updateNewsletter(id: number, updates: Partial<InsertNewsletter>): Promise<Newsletter | undefined> {
+    const [newsletter] = await db
+      .update(newsletters)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(newsletters.id, id))
+      .returning();
+    return newsletter || undefined;
+  }
+
+  async deleteNewsletter(id: number): Promise<boolean> {
+    const result = await db.delete(newsletters).where(eq(newsletters.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getNewsletterSubscribers(category?: string): Promise<NewsletterSubscriber[]> {
+    let query = db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.isSubscribed, true));
+    if (category) {
+      query = query.where(eq(newsletterSubscribers.category, category)) as any;
+    }
+    return query;
+  }
+
+  async subscribeToNewsletter(subscriber: InsertNewsletterSubscriber): Promise<NewsletterSubscriber> {
+    const [result] = await db.insert(newsletterSubscribers).values(subscriber).onConflictDoUpdate({
+      target: newsletterSubscribers.email,
+      set: { isSubscribed: true, unsubscribeDate: null },
+    }).returning();
+    return result;
+  }
+
+  async unsubscribeFromNewsletter(email: string): Promise<boolean> {
+    const result = await db
+      .update(newsletterSubscribers)
+      .set({ isSubscribed: false, unsubscribeDate: new Date() })
+      .where(eq(newsletterSubscribers.email, email));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async trackNewsletterEvent(eventData: InsertNewsletterEvent): Promise<NewsletterEvent> {
+    const [event] = await db.insert(newsletterEvents).values(eventData).returning();
+    return event;
+  }
+
+  async getNewsletterStats(newsletterId: number): Promise<any> {
+    const events = await db.select().from(newsletterEvents).where(eq(newsletterEvents.newsletterId, newsletterId));
+    const sent = events.filter(e => e.eventType === "sent").length;
+    const opened = events.filter(e => e.eventType === "opened").length;
+    const clicked = events.filter(e => e.eventType === "clicked").length;
+
+    return {
+      sent,
+      opened,
+      clicked,
+      openRate: sent > 0 ? ((opened / sent) * 100).toFixed(2) : 0,
+      clickRate: sent > 0 ? ((clicked / sent) * 100).toFixed(2) : 0,
+    };
   }
 }
 
