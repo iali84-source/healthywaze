@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import healthyWazeLogo from "@assets/generated_images/healthywaze_professional_wellness_logo.png";
 
 interface StorefrontHeaderProps {
   cartItemCount: number;
@@ -17,9 +18,11 @@ export function StorefrontHeader({ cartItemCount, onCartClick, searchQuery, onSe
       <div className="container mx-auto px-3 sm:px-4">
         <div className="flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-4">
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 hover-elevate rounded-md px-2 sm:px-3 py-2" data-testid="link-home">
-            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <span className="text-xs sm:text-sm font-bold">HW</span>
-            </div>
+            <img 
+              src={healthyWazeLogo} 
+              alt="HealthyWaze Logo" 
+              className="h-7 w-7 sm:h-8 sm:w-8 object-contain"
+            />
             <span className="hidden text-base sm:text-lg font-bold md:inline">HealthyWaze</span>
           </Link>
 
