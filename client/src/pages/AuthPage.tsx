@@ -12,6 +12,7 @@ import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ShoppingBag, TrendingUp, Zap } from "lucide-react";
+import healthyWazeLogo from "@assets/generated_images/healthywaze_professional_wellness_logo.png";
 
 const loginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -68,7 +69,14 @@ export default function AuthPage() {
       <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold mb-2">Your Trusted Family Loving Remedies</h1>
+            <div className="flex justify-center mb-4">
+              <img 
+                src={healthyWazeLogo} 
+                alt="HealthyWaze Logo" 
+                className="h-12 w-12 object-contain"
+              />
+            </div>
+            <h1 className="text-3xl font-bold mb-2">HealthyWaze</h1>
             <p className="text-muted-foreground">
               Admin Dashboard
             </p>

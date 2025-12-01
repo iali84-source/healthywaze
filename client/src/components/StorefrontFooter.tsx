@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
+import healthyWazeLogo from "@assets/generated_images/healthywaze_professional_wellness_logo.png";
 
 export function StorefrontFooter() {
   const [, setLocation] = useLocation();
@@ -12,9 +13,11 @@ export function StorefrontFooter() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <span className="text-sm font-bold">HW</span>
-              </div>
+              <img 
+                src={healthyWazeLogo} 
+                alt="HealthyWaze Logo" 
+                className="h-8 w-8 object-contain"
+              />
               <span className="font-bold">HealthyWaze</span>
             </div>
             <p className="text-sm text-muted-foreground">
