@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import healthyWazeLogo from "@assets/generated_images/healthywaze_professional_wellness_logo.png";
 
 const adminItems = [
   {
@@ -111,9 +112,11 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-primary-foreground text-xs font-bold">
-                HW
-              </div>
+              <img 
+                src={healthyWazeLogo} 
+                alt="HealthyWaze Logo" 
+                className="h-6 w-6 object-contain"
+              />
               <span>Admin Dashboard</span>
             </div>
           </SidebarGroupLabel>
