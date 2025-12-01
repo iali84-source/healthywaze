@@ -2,6 +2,7 @@ import { Heart, Shield, Users, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { StorefrontFooter } from "@/components/StorefrontFooter";
+import healthyWazeLogo from "@assets/generated_images/healthywaze_professional_wellness_logo.png";
 
 export default function AboutUs() {
   return (
@@ -11,9 +12,11 @@ export default function AboutUs() {
         <div className="container mx-auto px-3 sm:px-4">
           <div className="flex h-14 sm:h-16 items-center justify-between gap-4">
             <Link href="/" className="flex items-center gap-1.5 sm:gap-2 hover-elevate rounded-md px-2 sm:px-3 py-2" data-testid="link-home">
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <span className="text-xs sm:text-sm font-bold">HW</span>
-              </div>
+              <img 
+                src={healthyWazeLogo} 
+                alt="HealthyWaze Logo" 
+                className="h-7 w-7 sm:h-8 sm:w-8 object-contain"
+              />
               <span className="hidden text-base sm:text-lg font-bold md:inline">HealthyWaze</span>
             </Link>
             <div className="flex items-center gap-2">
