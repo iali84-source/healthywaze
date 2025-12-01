@@ -2,7 +2,14 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    throw new Error(`${res.status}: ${res.statusText}`);
+    let errorMessage = `${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (e) {
+      // Use default error message if response is not JSON
+    }
+    throw new Error(errorMessage);
   }
 }
 
@@ -10,7 +17,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
+): Promise<any> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -19,7 +26,11 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
-  return res;
+  try {
+    return await res.json();
+  } catch (e) {
+    return res;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

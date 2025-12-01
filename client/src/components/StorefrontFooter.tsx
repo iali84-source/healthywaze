@@ -52,9 +52,9 @@ export function StorefrontFooter() {
             <h3 className="font-semibold mb-3 text-sm">Support</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="mailto:support@healthywaze.com" className="text-muted-foreground hover:text-foreground hover-elevate px-2 py-1 rounded" data-testid="link-footer-contact">
+                <Link href="/contact" className="text-muted-foreground hover:text-foreground hover-elevate px-2 py-1 rounded" data-testid="link-footer-contact">
                   Contact Us
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="#" className="text-muted-foreground hover:text-foreground hover-elevate px-2 py-1 rounded" data-testid="link-footer-faq">
