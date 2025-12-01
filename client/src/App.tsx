@@ -28,6 +28,7 @@ import GrowthGuide from "@/pages/admin/GrowthGuide";
 import ProductSelection from "@/pages/admin/ProductSelection";
 import DebugDashboard from "@/pages/admin/DebugDashboard";
 import AuthPage from "@/pages/AuthPage";
+import LogoShowcase from "@/pages/LogoShowcase";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
@@ -127,6 +128,9 @@ function App() {
             <Route path="/admin/debug" component={AdminPage} />
             <Route path="/admin/settings" component={AdminPage} />
             <Route path="/admin/tutorial" component={AdminPage} />
+            
+            {/* Logo Showcase */}
+            <Route path="/logo" component={LogoShowcase} />
             
             {/* Storefront routes */}
             <Route path="/" component={Home} />
