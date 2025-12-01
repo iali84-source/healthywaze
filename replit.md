@@ -1,10 +1,36 @@
-# Your Trusted Family Loving Remedies - AI-Powered E-Commerce Platform
+# HealthyWaze - Trusted Wellness E-Commerce Platform
+
+## Ownership & Intellectual Property
+**HealthyWaze** is fully owned and operated by you. You retain 100% complete ownership of:
+
+### Complete Asset Ownership
+- **Domain & Brand:** healthywaze.com domain and "HealthyWaze" brand name
+- **Logo & Visual Assets:** Professional HealthyWaze logo (stored in `attached_assets/generated_images/healthywaze_professional_wellness_logo.png`)
+- **Source Code:** All frontend, backend, and database code in this Replit project
+- **Database:** PostgreSQL database with all product data, customer data, orders, analytics, and business logic
+- **Platform Architecture:** All features, systems, and integrations (Stripe, OpenAI, Google Analytics)
+- **Intellectual Property:** All business logic, workflows, algorithms, and processes
+- **Content:** All marketing copy, product descriptions, storefront content, and documentation
+
+### What You Own (Complete List)
+✓ All code written in this Replit project  
+✓ HealthyWaze.com domain (or your custom domain)  
+✓ Database structure and all stored data  
+✓ Professional HealthyWaze logo and brand assets  
+✓ All features: storefront, admin dashboard, loyalty program, analytics, payment processing  
+✓ Customer data, order history, product catalog  
+✓ Revenue systems: loyalty points, email automation, abandoned cart recovery  
+✓ All integrations with third-party services (Stripe for payments, OpenAI for AI features, Google Analytics)  
+✓ Design system (colors, typography, component library)  
+✓ All documentation and deployment information  
+
+**This is your business. You own it 100%.**
 
 ## Overview
-Your Trusted Family Loving Remedies is an AI-powered e-commerce platform designed to help entrepreneurs operate a data-driven online store with minimal daily involvement. It integrates AI for intelligent insights and automation to streamline operations, enabling rapid product testing and efficient management. The platform aims to provide a competitive edge in the e-commerce market by leveraging advanced AI features and comprehensive analytics to maximize sales and minimize operational overhead.
+HealthyWaze is a family-wellness-focused e-commerce platform that helps entrepreneurs test and scale wellness products through trusted, community-validated curation. Built on a foundation of authenticity and family trust rather than AI hype, the platform enables rapid product testing, efficient inventory management, and data-driven decision making with minimal daily involvement.
 
 ## User Preferences
-I prefer simple language and detailed explanations. I want iterative development with clear communication on progress. Ask before making major changes. I prefer functional programming paradigms where applicable and expect clean, well-documented code. Do not make changes to the folder `Z` and do not make changes to the file `Y`.
+Simple language, detailed explanations, and iterative development with clear communication. Functional programming paradigms where applicable. Clean, well-documented code. HealthyWaze brand must be consistently used across all marketing and user-facing materials.
 
 ## System Architecture
 
