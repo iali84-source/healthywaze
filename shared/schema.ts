@@ -269,6 +269,44 @@ export const financialRecords = pgTable("financial_records", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Newsletter System
+export const newsletters = pgTable("newsletters", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  subject: text("subject").notNull(),
+  content: text("content").notNull(), // HTML content
+  category: text("category").notNull(), // "yoga", "lotion", "energy_drinks", etc.
+  productIds: text("product_ids"), // JSON array of product IDs to feature
+  status: text("status").notNull().default("draft"), // draft, scheduled, sent
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  recipientCount: integer("recipient_count").default(0),
+  openRate: decimal("open_rate", { precision: 5, scale: 2 }).default("0"),
+  clickRate: decimal("click_rate", { precision: 5, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const newsletterSubscribers = pgTable("newsletter_subscribers", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  userId: integer("user_id").references(() => users.id),
+  category: text("category"), // "all", "yoga", "lotion", "energy_drinks", etc.
+  isSubscribed: boolean("is_subscribed").notNull().default(true),
+  subscriptionDate: timestamp("subscription_date").notNull().default(sql`now()`),
+  unsubscribeDate: timestamp("unsubscribe_date"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const newsletterEvents = pgTable("newsletter_events", {
+  id: serial("id").primaryKey(),
+  newsletterId: integer("newsletter_id").notNull().references(() => newsletters.id),
+  subscriberId: integer("subscriber_id").notNull().references(() => newsletterSubscribers.id),
+  eventType: text("event_type").notNull(), // "sent", "opened", "clicked", "bounced"
+  clickUrl: text("click_url"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
@@ -440,3 +478,26 @@ export interface ProductTestingMetrics {
   status: "winner" | "testing" | "loser" | "needs_data";
   recommendation: string;
 }
+
+export type Newsletter = typeof newsletters.$inferSelect;
+export type InsertNewsletter = typeof newsletters.$inferInsert;
+export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
+export type InsertNewsletterSubscriber = typeof newsletterSubscribers.$inferInsert;
+export type NewsletterEvent = typeof newsletterEvents.$inferSelect;
+export type InsertNewsletterEvent = typeof newsletterEvents.$inferInsert;
+
+export const insertNewsletterSchema = createInsertSchema(newsletters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  sentAt: true,
+  recipientCount: true,
+  openRate: true,
+  clickRate: true,
+});
+
+export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSubscribers).omit({
+  id: true,
+  subscriptionDate: true,
+  createdAt: true,
+});
