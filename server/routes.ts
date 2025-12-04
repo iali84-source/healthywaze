@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, insertCustomerAddressSchema, insertReviewSchema, type Order, type OrderItem } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, insertCustomerAddressSchema, insertReviewSchema, insertNewsletterSchema, type Order, type OrderItem } from "@shared/schema";
 import Stripe from "stripe";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -2009,6 +2009,103 @@ Only respond with the category name, nothing else.`,
 
       const summary = await storage.getFinancialSummary(startDate, endDate);
       res.json(summary);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Newsletter endpoints
+  app.get("/api/newsletters", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+      const newsletters = await storage.getNewsletters();
+      res.json(newsletters);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/newsletters", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const validated = insertNewsletterSchema.parse(req.body);
+      const newsletter = await storage.createNewsletter(validated);
+      res.json(newsletter);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid newsletter data", details: error.errors });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/newsletters/:id", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const newsletter = await storage.getNewsletter(parseInt(req.params.id));
+      if (!newsletter) {
+        return res.status(404).json({ error: "Newsletter not found" });
+      }
+      res.json(newsletter);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/newsletters/:id", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const newsletter = await storage.updateNewsletter(parseInt(req.params.id), req.body);
+      if (!newsletter) {
+        return res.status(404).json({ error: "Newsletter not found" });
+      }
+      res.json(newsletter);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/newsletters/:id", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const success = await storage.deleteNewsletter(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ error: "Newsletter not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/newsletters/:id/stats", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+
+      const stats = await storage.getNewsletterStats(parseInt(req.params.id));
+      res.json(stats);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
