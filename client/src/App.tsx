@@ -28,6 +28,7 @@ import ProductArchive from "@/pages/admin/ProductArchive";
 import GrowthGuide from "@/pages/admin/GrowthGuide";
 import ProductSelection from "@/pages/admin/ProductSelection";
 import DebugDashboard from "@/pages/admin/DebugDashboard";
+import Newsletter from "@/pages/admin/Newsletter";
 import AuthPage from "@/pages/AuthPage";
 import LogoShowcase from "@/pages/LogoShowcase";
 import { useEffect } from "react";
@@ -92,6 +93,7 @@ function AdminPageRouter() {
       <Route path="/admin/debug" component={DebugDashboard} />
       <Route path="/admin/settings" component={SiteSettings} />
       <Route path="/admin/tutorial" component={Tutorial} />
+      <Route path="/admin/newsletter" component={Newsletter} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -129,6 +131,7 @@ function App() {
             <Route path="/admin/debug" component={AdminPage} />
             <Route path="/admin/settings" component={AdminPage} />
             <Route path="/admin/tutorial" component={AdminPage} />
+            <Route path="/admin/newsletter" component={AdminPage} />
             
             {/* Logo Showcase */}
             <Route path="/logo" component={LogoShowcase} />
