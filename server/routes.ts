@@ -2111,6 +2111,46 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // Newsletter subscription endpoint (public - no auth required)
+  app.post("/api/subscribe", async (req, res) => {
+    try {
+      const subscribeSchema = z.object({
+        email: z.string().email(),
+        category: z.string().optional().default("all"),
+      });
+
+      const data = subscribeSchema.parse(req.body);
+
+      const subscriber = await storage.subscribeToNewsletter({
+        email: data.email,
+        category: data.category,
+      });
+
+      console.log("📧 NEW NEWSLETTER SUBSCRIBER");
+      console.log(`Email: ${data.email}`);
+      console.log(`Category: ${data.category}`);
+      console.log("---");
+
+      res.json({
+        success: true,
+        message: "Thank you for subscribing! You'll receive wellness updates soon.",
+        subscriber,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Please enter a valid email address", details: error.errors });
+      }
+      // Handle duplicate email gracefully
+      if (error.message?.includes("duplicate") || error.code === "23505") {
+        return res.json({
+          success: true,
+          message: "You're already subscribed! We'll keep you updated.",
+        });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Contact form endpoint
   app.post("/api/contact", async (req, res) => {
     try {
