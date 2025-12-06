@@ -175,11 +175,22 @@ export default function Home() {
                   {siteSettings?.heroSubheadline || "We're not just another wellness store. We're a family that personally tests every product we recommend. Clean ingredients, proven results, delivered with care."}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" className="gap-2" data-testid="button-shop-now">
+                  <Button 
+                    size="lg" 
+                    className="gap-2" 
+                    data-testid="button-shop-now"
+                    onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
                     <ShoppingCart className="w-5 h-5" />
                     {siteSettings?.heroButtonText || "Shop Wellness"}
                   </Button>
-                  <Button size="lg" variant="outline" className="gap-2" data-testid="button-learn-more">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="gap-2" 
+                    data-testid="button-learn-more"
+                    onClick={() => document.getElementById('story')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
                     <Sparkles className="w-5 h-5" />
                     Why Families Trust Us
                   </Button>
@@ -275,7 +286,7 @@ export default function Home() {
         )}
 
         {/* Category Filter & All Products */}
-        <section className="py-12 md:py-16 bg-muted/20">
+        <section id="products" className="py-12 md:py-16 bg-muted/20">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
               <div>
@@ -387,7 +398,7 @@ export default function Home() {
         </section>
 
         {/* Our Story Section */}
-        <section className="py-16 md:py-20">
+        <section id="story" className="py-16 md:py-20">
           <div className="container mx-auto px-4">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-6">
