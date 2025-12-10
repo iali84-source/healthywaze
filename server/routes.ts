@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, insertCustomerAddressSchema, insertReviewSchema, insertNewsletterSchema, type Order, type OrderItem } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertSiteSettingsSchema, insertCustomerAddressSchema, insertReviewSchema, insertNewsletterSchema, insertBlogPostSchema, type Order, type OrderItem } from "@shared/schema";
 import Stripe from "stripe";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -2186,6 +2186,110 @@ Only respond with the category name, nothing else.`,
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid contact form data", details: error.errors });
       }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== BLOG POSTS =====
+  // Public: Get all published blog posts
+  app.get("/api/blog", async (req, res) => {
+    try {
+      const posts = await storage.getBlogPosts(true);
+      res.json(posts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Public: Get single blog post by slug
+  app.get("/api/blog/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const post = await storage.getBlogPostBySlug(slug);
+      
+      if (!post || !post.isPublished) {
+        return res.status(404).json({ error: "Blog post not found" });
+      }
+
+      // Increment view count
+      await storage.incrementBlogPostViews(post.id);
+
+      res.json(post);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get all blog posts (including drafts)
+  app.get("/api/admin/blog", requireAdmin, async (req, res) => {
+    try {
+      const posts = await storage.getBlogPosts(false);
+      res.json(posts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get single blog post by ID
+  app.get("/api/admin/blog/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const post = await storage.getBlogPost(id);
+      
+      if (!post) {
+        return res.status(404).json({ error: "Blog post not found" });
+      }
+
+      res.json(post);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Create new blog post
+  app.post("/api/admin/blog", requireAdmin, async (req, res) => {
+    try {
+      const data = insertBlogPostSchema.parse(req.body);
+      const post = await storage.createBlogPost(data);
+      res.status(201).json(post);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid blog post data", details: error.errors });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Update blog post
+  app.patch("/api/admin/blog/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const post = await storage.updateBlogPost(id, updates);
+      
+      if (!post) {
+        return res.status(404).json({ error: "Blog post not found" });
+      }
+
+      res.json(post);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Delete blog post
+  app.delete("/api/admin/blog/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteBlogPost(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Blog post not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });

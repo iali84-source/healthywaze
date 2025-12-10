@@ -31,6 +31,7 @@ import DebugDashboard from "@/pages/admin/DebugDashboard";
 import Newsletter from "@/pages/admin/Newsletter";
 import AuthPage from "@/pages/AuthPage";
 import LogoShowcase from "@/pages/LogoShowcase";
+import Blog from "@/pages/Blog";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
@@ -135,6 +136,12 @@ function App() {
             
             {/* Logo Showcase */}
             <Route path="/logo" component={LogoShowcase} />
+            
+            {/* Blog routes */}
+            <Route path="/blog" component={Blog} />
+            <Route path="/blog/:slug">
+              {(params) => <Blog params={params} />}
+            </Route>
             
             {/* Storefront routes */}
             <Route path="/" component={Home} />
