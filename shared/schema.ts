@@ -230,6 +230,10 @@ export const discountCodes = pgTable("discount_codes", {
   validFrom: timestamp("valid_from").notNull(),
   validUntil: timestamp("valid_until"),
   isActive: boolean("is_active").notNull().default(true),
+  // Post-order discount tracking
+  generatedForOrderId: varchar("generated_for_order_id").references(() => orders.id),
+  forCustomerEmail: text("for_customer_email"),
+  source: text("source").default("manual"), // "manual", "post_order", "loyalty", "campaign"
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -501,3 +505,32 @@ export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSub
   subscriptionDate: true,
   createdAt: true,
 });
+
+// Blog Posts - for newsletter archives and wellness articles
+export const blogPosts = pgTable("blog_posts", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  excerpt: text("excerpt"), // Short preview text
+  content: text("content").notNull(), // Full article content (plain text/markdown)
+  category: text("category"), // wellness, nutrition, fitness, etc.
+  featuredImage: text("featured_image"), // Optional header image URL
+  author: text("author").default("HealthyWaze Team"),
+  isPublished: boolean("is_published").notNull().default(false),
+  isFromNewsletter: boolean("is_from_newsletter").notNull().default(false), // Marks if converted from newsletter
+  newsletterId: integer("newsletter_id"),
+  publishedAt: timestamp("published_at"),
+  views: integer("views").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
+  id: true,
+  views: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BlogPost = typeof blogPosts.$inferSelect;
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
