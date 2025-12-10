@@ -29,6 +29,7 @@ import GrowthGuide from "@/pages/admin/GrowthGuide";
 import ProductSelection from "@/pages/admin/ProductSelection";
 import DebugDashboard from "@/pages/admin/DebugDashboard";
 import Newsletter from "@/pages/admin/Newsletter";
+import BlogManager from "@/pages/admin/BlogManager";
 import AuthPage from "@/pages/AuthPage";
 import LogoShowcase from "@/pages/LogoShowcase";
 import Blog from "@/pages/Blog";
@@ -95,6 +96,7 @@ function AdminPageRouter() {
       <Route path="/admin/settings" component={SiteSettings} />
       <Route path="/admin/tutorial" component={Tutorial} />
       <Route path="/admin/newsletter" component={Newsletter} />
+      <Route path="/admin/blog" component={BlogManager} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -133,6 +135,7 @@ function App() {
             <Route path="/admin/settings" component={AdminPage} />
             <Route path="/admin/tutorial" component={AdminPage} />
             <Route path="/admin/newsletter" component={AdminPage} />
+            <Route path="/admin/blog" component={AdminPage} />
             
             {/* Logo Showcase */}
             <Route path="/logo" component={LogoShowcase} />

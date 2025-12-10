@@ -41,6 +41,9 @@ export function StorefrontHeader({ cartItemCount, onCartClick, searchQuery, onSe
           </div>
 
           <div className="flex items-center gap-1 sm:gap-3">
+            <Link href="/blog" className="hidden sm:inline-block text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-blog">
+              Blog
+            </Link>
             <Link href="/about" className="hidden sm:inline-block text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-about">
               About
             </Link>
