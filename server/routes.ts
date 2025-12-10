@@ -2249,11 +2249,18 @@ Only respond with the category name, nothing else.`,
   // Admin: Create new blog post
   app.post("/api/admin/blog", requireAdmin, async (req, res) => {
     try {
-      const data = insertBlogPostSchema.parse(req.body);
+      // Handle date conversion from JSON strings
+      const body = { ...req.body };
+      if (body.publishedAt && typeof body.publishedAt === 'string') {
+        body.publishedAt = new Date(body.publishedAt);
+      }
+      
+      const data = insertBlogPostSchema.parse(body);
       const post = await storage.createBlogPost(data);
       res.status(201).json(post);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
+        console.log("Blog post validation error:", error.errors);
         return res.status(400).json({ error: "Invalid blog post data", details: error.errors });
       }
       res.status(500).json({ error: error.message });

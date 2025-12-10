@@ -44,6 +44,11 @@ export function StorefrontFooter() {
                   My Dashboard
                 </Link>
               </li>
+              <li>
+                <Link href="/blog" className="text-muted-foreground hover:text-foreground hover-elevate px-2 py-1 rounded" data-testid="link-footer-blog">
+                  Wellness Blog
+                </Link>
+              </li>
             </ul>
           </div>
 

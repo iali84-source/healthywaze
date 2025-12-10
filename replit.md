@@ -64,8 +64,16 @@ The system supports a full CRUD API for products, orders, customer addresses, an
 
 **Abandoned Cart Recovery** - Standalone cart capture system that stores: cart items (JSON), cart total, unique recovery code, and reminder send timestamps. Status progression: abandoned → recovered/converted. Links to completed orders when customer recovers purchase. Integration points ready for 3-email recovery sequence automation.
 
-### Recent Changes (Dec 6, 2025)
-**Homepage Conversion Optimization**
+### Recent Changes (Dec 10, 2025)
+**Blog System for Newsletter Archives**
+- New `blog_posts` table stores articles as plain text/HTML (not PDFs)
+- Public blog page at /blog with article grid and individual post pages
+- Admin blog manager at /admin/blog for creating, editing, and publishing posts
+- Blog navigation added to header and footer
+- Posts can be marked as "From Newsletter" to indicate archived newsletters
+- Features: categories, excerpts, view counts, featured images, draft/published status
+
+**Homepage Conversion Optimization (Dec 6, 2025)**
 - Complete homepage overhaul with family-focused messaging (no AI/tech hype)
 - Hero section with compelling CTAs that scroll to products/story sections
 - Product catalog grid with category filtering
