@@ -14,10 +14,10 @@ export default function AboutUs() {
             <Link href="/" className="flex items-center gap-1.5 sm:gap-2 hover-elevate rounded-md px-2 sm:px-3 py-2" data-testid="link-home">
               <img 
                 src={healthyWazeLogo} 
-                alt="HealthyWaze Logo" 
+                alt="Healthywaze Logo" 
                 className="h-7 w-7 sm:h-8 sm:w-8 object-contain"
               />
-              <span className="hidden text-base sm:text-lg font-bold md:inline">HealthyWaze</span>
+              <span className="hidden text-base sm:text-lg font-bold md:inline">Healthywaze</span>
             </Link>
             <div className="flex items-center gap-2">
               <Link href="/" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-shop">Shop</Link>
@@ -45,7 +45,7 @@ export default function AboutUs() {
           <div className="bg-card rounded-lg border p-8 sm:p-10 md:p-12">
             <h2 className="text-2xl sm:text-3xl font-bold mb-6">Our Promise to You</h2>
             <p className="text-base sm:text-lg text-muted-foreground mb-6 leading-relaxed">
-              At HealthyWaze, we believe that wellness shouldn't be complicated—or toxic. We started this company because we wanted to offer our own families products we could actually trust. Every single product in our collection has been personally tested and approved by our family members, friends, neighbors, colleagues, and their families.
+              At Healthywaze, we believe that wellness shouldn't be complicated—or toxic. We started this company because we wanted to offer our own families products we could actually trust. Every single product in our collection has been personally tested and approved by our family members, friends, neighbors, colleagues, and their families.
             </p>
             <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
               We don't just sell products. We sell peace of mind.
@@ -153,7 +153,7 @@ export default function AboutUs() {
           <div className="bg-card rounded-lg border p-8 sm:p-10">
             <h2 className="text-2xl sm:text-3xl font-bold mb-4">Ready to Experience the Difference?</h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Join thousands of families who trust HealthyWaze for their natural wellness journey.
+              Join thousands of families who trust Healthywaze for their natural wellness journey.
             </p>
             <Link href="/">
               <Button size="lg" data-testid="button-shop-from-about">

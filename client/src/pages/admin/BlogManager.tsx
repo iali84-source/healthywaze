@@ -302,7 +302,7 @@ function BlogPostForm({ post, onSubmit, isLoading, generateSlug }: BlogPostFormP
   const [content, setContent] = useState(post?.content || "");
   const [category, setCategory] = useState(post?.category || "");
   const [featuredImage, setFeaturedImage] = useState(post?.featuredImage || "");
-  const [author, setAuthor] = useState(post?.author || "HealthyWaze Team");
+  const [author, setAuthor] = useState(post?.author || "Healthywaze Team");
   const [isPublished, setIsPublished] = useState(post?.isPublished || false);
   const [isFromNewsletter, setIsFromNewsletter] = useState(post?.isFromNewsletter || false);
 

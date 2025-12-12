@@ -72,11 +72,11 @@ export default function AuthPage() {
             <div className="flex justify-center mb-4">
               <img 
                 src={healthyWazeLogo} 
-                alt="HealthyWaze Logo" 
+                alt="Healthywaze Logo" 
                 className="h-12 w-12 object-contain"
               />
             </div>
-            <h1 className="text-3xl font-bold mb-2">HealthyWaze</h1>
+            <h1 className="text-3xl font-bold mb-2">Healthywaze</h1>
             <p className="text-muted-foreground">
               Admin Dashboard
             </p>

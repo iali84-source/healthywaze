@@ -9,7 +9,7 @@ export default function LogoShowcase() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-12 flex flex-col items-center justify-center">
           <img 
             src={healthyWazeLogo} 
-            alt="HealthyWaze Logo" 
+            alt="Healthywaze Logo" 
             className="w-80 h-80 object-contain mb-8"
           />
           
@@ -18,7 +18,7 @@ export default function LogoShowcase() {
           </h1>
           
           <p className="text-xl text-muted-foreground text-center mb-8 max-w-xl">
-            Professional HealthyWaze logo. Modern, memorable, and yours to own.
+            Professional Healthywaze logo. Modern, memorable, and yours to own.
           </p>
           
           <div className="flex gap-4">

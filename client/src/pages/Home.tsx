@@ -215,7 +215,7 @@ export default function Home() {
                 <div className="aspect-square rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                   <img
                     src={healthyWazeLogo}
-                    alt="HealthyWaze - Family Wellness"
+                    alt="Healthywaze - Family Wellness"
                     className="w-48 h-48 object-contain"
                   />
                 </div>
@@ -410,10 +410,10 @@ export default function Home() {
                   A Family's Mission to Transform Wellness
                 </h2>
                 <p className="text-muted-foreground text-lg">
-                  HealthyWaze started around our family dinner table. Frustrated by confusing labels and questionable ingredients in mainstream wellness products, we decided to create a platform that curates only the products we'd give to our own children.
+                  Healthywaze started around our family dinner table. Frustrated by confusing labels and questionable ingredients in mainstream wellness products, we decided to create a platform that curates only the products we'd give to our own children.
                 </p>
                 <p className="text-muted-foreground">
-                  Every product on HealthyWaze is personally tested by our family. We believe in transparency, clean ingredients, and building genuine relationships with the brands we partner with. This isn't just a business—it's our way of helping families like yours live healthier, happier lives.
+                  Every product on Healthywaze is personally tested by our family. We believe in transparency, clean ingredients, and building genuine relationships with the brands we partner with. This isn't just a business—it's our way of helping families like yours live healthier, happier lives.
                 </p>
                 <div className="flex gap-4">
                   <Link href="/about">
