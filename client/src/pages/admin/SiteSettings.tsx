@@ -23,7 +23,7 @@ export default function SiteSettings() {
   const form = useForm({
     resolver: zodResolver(insertSiteSettingsSchema),
     defaultValues: {
-      siteName: "HealthyWaze",
+      siteName: "Healthywaze",
       logoUrl: "",
       primaryColor: "22 163 74",
       secondaryColor: "234 88 12",
@@ -31,7 +31,7 @@ export default function SiteSettings() {
       promoBannerEnabled: true,
       promoBannerText: "Free Shipping on Orders Over $50 | 30-Day Money-Back Guarantee | Natural Wellness You Can Trust",
       heroHeadline: "Natural Wellness Solutions Trusted by Families",
-      heroSubheadline: "Discover premium natural remedies, supplements, and holistic wellness products loved by families worldwide. HealthyWaze - Your Wellness Journey Made Simple.",
+      heroSubheadline: "Discover premium natural remedies, supplements, and holistic wellness products loved by families worldwide. Healthywaze - Your Wellness Journey Made Simple.",
       heroButtonText: "Shop Wellness Products",
       trustBadgeEnabled: true,
       trustBadgeText: "Trusted by Families Worldwide | Proven Results | 30-Day Guarantee",

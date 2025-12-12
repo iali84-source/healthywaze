@@ -15,10 +15,10 @@ export function StorefrontFooter() {
             <div className="flex items-center gap-2 mb-2">
               <img 
                 src={healthyWazeLogo} 
-                alt="HealthyWaze Logo" 
+                alt="Healthywaze Logo" 
                 className="h-8 w-8 object-contain"
               />
-              <span className="font-bold">HealthyWaze</span>
+              <span className="font-bold">Healthywaze</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Natural wellness solutions trusted by families
@@ -96,7 +96,7 @@ export function StorefrontFooter() {
         {/* Bottom Bar */}
         <div className="border-t pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-muted-foreground">
-            © 2025 HealthyWaze. All rights reserved.
+            © 2025 Healthywaze. All rights reserved.
           </p>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <a href="#" className="hover:text-foreground hover-elevate" data-testid="link-footer-privacy">Privacy</a>

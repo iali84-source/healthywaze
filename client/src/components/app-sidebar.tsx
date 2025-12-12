@@ -124,7 +124,7 @@ export function AppSidebar() {
             <div className="flex items-center gap-2">
               <img 
                 src={healthyWazeLogo} 
-                alt="HealthyWaze Logo" 
+                alt="Healthywaze Logo" 
                 className="h-6 w-6 object-contain"
               />
               <span>Admin Dashboard</span>

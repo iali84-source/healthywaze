@@ -43,7 +43,7 @@ export default function Contact() {
     onSuccess: () => {
       toast({
         title: "Message sent!",
-        description: "Thank you for contacting HealthyWaze. We'll get back to you soon.",
+        description: "Thank you for contacting Healthywaze. We'll get back to you soon.",
       });
       form.reset();
     },
@@ -68,7 +68,7 @@ export default function Contact() {
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8 sm:mb-12">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Contact HealthyWaze
+              Contact Healthywaze
             </h1>
             <p className="text-lg text-muted-foreground">
               Have questions? We'd love to hear from you. Send us a message and we'll respond as quickly as we can.
