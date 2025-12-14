@@ -2301,6 +2301,209 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // ================== AI FEATURES ==================
+
+  // AI Wellness Chatbot - Main chat endpoint
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      if (!openai) {
+        return res.status(503).json({ error: "AI service not configured" });
+      }
+
+      const { message, sessionId, visitorId } = req.body;
+      
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      // Get or create session
+      let session;
+      if (sessionId) {
+        session = await storage.getAiChatSession(sessionId);
+      }
+      
+      if (!session) {
+        const user = req.user as any;
+        session = await storage.createAiChatSession({
+          visitorId: visitorId || null,
+          userId: user?.id || null,
+          summary: null,
+        });
+      }
+
+      // Save user message
+      await storage.createAiChatMessage({
+        sessionId: session.id,
+        role: "user",
+        content: message,
+        recommendedProductIds: null,
+      });
+
+      // Get conversation history
+      const history = await storage.getAiChatMessages(session.id);
+      
+      // Get products for context
+      const products = await storage.getProducts({});
+      const productContext = products.slice(0, 20).map(p => 
+        `- ${p.name} ($${p.price}): ${p.description?.substring(0, 100)}... [ID: ${p.id}]`
+      ).join("\n");
+
+      // Build messages for OpenAI
+      const messages: any[] = [
+        {
+          role: "system",
+          content: `You are a friendly wellness advisor for Healthywaze, a natural wellness e-commerce store. You help customers find the right products for their health needs.
+
+Available products:
+${productContext}
+
+Guidelines:
+- Be warm, helpful, and knowledgeable about natural wellness
+- Ask clarifying questions about their health goals or concerns
+- Recommend specific products when appropriate (include product IDs)
+- Never provide medical advice - suggest consulting healthcare professionals for medical issues
+- Keep responses concise but helpful (2-3 paragraphs max)
+- When recommending products, format as: "I recommend [Product Name] (ID: xxx)"`,
+        },
+        ...history.slice(-10).map(m => ({
+          role: m.role,
+          content: m.content,
+        })),
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages,
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+
+      const assistantMessage = completion.choices[0]?.message?.content || "I apologize, I couldn't generate a response.";
+
+      // Extract product IDs from response
+      const productIdMatches = assistantMessage.match(/ID:\s*([a-f0-9-]+)/gi);
+      const recommendedIds = productIdMatches 
+        ? productIdMatches.map(m => m.replace(/ID:\s*/i, "")).join(",")
+        : null;
+
+      // Save assistant response
+      await storage.createAiChatMessage({
+        sessionId: session.id,
+        role: "assistant",
+        content: assistantMessage,
+        recommendedProductIds: recommendedIds,
+      });
+
+      // Get recommended products if any
+      let recommendedProducts: any[] = [];
+      if (recommendedIds) {
+        const ids = recommendedIds.split(",");
+        for (const id of ids) {
+          const product = await storage.getProduct(id.trim());
+          if (product) recommendedProducts.push(product);
+        }
+      }
+
+      res.json({
+        sessionId: session.id,
+        message: assistantMessage,
+        recommendedProducts,
+      });
+    } catch (error: any) {
+      console.error("AI Chat error:", error);
+      res.status(500).json({ error: "Failed to process chat message" });
+    }
+  });
+
+  // Smart Product Recommendations
+  app.get("/api/products/:id/recommendations", async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Get related products from same category
+      const related = await storage.getRelatedProducts(product.category || undefined, 4);
+      
+      // Filter out the current product
+      const recommendations = related.filter(p => p.id !== product.id).slice(0, 4);
+
+      res.json(recommendations);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AI Newsletter Content Generation (Admin only)
+  app.post("/api/ai/generate-newsletter-content", requireAdmin, async (req, res) => {
+    try {
+      if (!openai) {
+        return res.status(503).json({ error: "AI service not configured" });
+      }
+
+      const { topic, category, tone } = req.body;
+
+      if (!topic) {
+        return res.status(400).json({ error: "Topic is required" });
+      }
+
+      // Get featured products for the category if specified
+      const products = await storage.getProducts({ category: category || undefined });
+      const featuredProducts = products.slice(0, 5).map(p => 
+        `- ${p.name} ($${p.price})`
+      ).join("\n");
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a wellness content writer for Healthywaze. Create engaging newsletter content that educates and promotes natural wellness products.`,
+          },
+          {
+            role: "user",
+            content: `Write a newsletter about: ${topic}
+
+Category: ${category || "General Wellness"}
+Tone: ${tone || "Friendly and informative"}
+
+${featuredProducts ? `Feature these products:\n${featuredProducts}` : ""}
+
+Include:
+1. A catchy subject line
+2. An engaging opening paragraph
+3. Main content (2-3 paragraphs)
+4. Product highlights if provided
+5. A call to action
+
+Format as JSON with keys: subject, content (HTML formatted)`,
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "";
+      
+      // Try to parse JSON response
+      try {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          res.json(parsed);
+        } else {
+          res.json({ subject: "Newsletter", content: responseText });
+        }
+      } catch {
+        res.json({ subject: "Newsletter", content: responseText });
+      }
+    } catch (error: any) {
+      console.error("Newsletter generation error:", error);
+      res.status(500).json({ error: "Failed to generate newsletter content" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
