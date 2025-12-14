@@ -534,3 +534,38 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
 
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+
+// AI Chat Sessions for Wellness Advisor
+export const aiChatSessions = pgTable("ai_chat_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  visitorId: text("visitor_id"), 
+  userId: integer("user_id").references(() => users.id),
+  summary: text("summary"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const aiChatMessages = pgTable("ai_chat_messages", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id").notNull().references(() => aiChatSessions.id),
+  role: text("role").notNull(), 
+  content: text("content").notNull(),
+  recommendedProductIds: text("recommended_product_ids"), 
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertAiChatSessionSchema = createInsertSchema(aiChatSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiChatMessageSchema = createInsertSchema(aiChatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AiChatSession = typeof aiChatSessions.$inferSelect;
+export type InsertAiChatSession = z.infer<typeof insertAiChatSessionSchema>;
+export type AiChatMessage = typeof aiChatMessages.$inferSelect;
+export type InsertAiChatMessage = z.infer<typeof insertAiChatMessageSchema>;

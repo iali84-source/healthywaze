@@ -42,6 +42,10 @@ import {
   type InsertNewsletterEvent,
   type BlogPost,
   type InsertBlogPost,
+  type AiChatSession,
+  type InsertAiChatSession,
+  type AiChatMessage,
+  type InsertAiChatMessage,
   products,
   orders,
   orderItems,
@@ -63,6 +67,8 @@ import {
   newsletterSubscribers,
   newsletterEvents,
   blogPosts,
+  aiChatSessions,
+  aiChatMessages,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -196,6 +202,13 @@ export interface IStorage {
   updateBlogPost(id: number, updates: Partial<InsertBlogPost>): Promise<BlogPost | undefined>;
   deleteBlogPost(id: number): Promise<boolean>;
   incrementBlogPostViews(id: number): Promise<void>;
+
+  // AI Chat Sessions
+  createAiChatSession(session: InsertAiChatSession): Promise<AiChatSession>;
+  getAiChatSession(id: string): Promise<AiChatSession | undefined>;
+  getAiChatMessages(sessionId: string): Promise<AiChatMessage[]>;
+  createAiChatMessage(message: InsertAiChatMessage): Promise<AiChatMessage>;
+  getRelatedProducts(category?: string, limit?: number): Promise<Product[]>;
 
   // Session Store
   sessionStore: session.Store;
@@ -1018,6 +1031,38 @@ export class DatabaseStorage implements IStorage {
       .update(blogPosts)
       .set({ views: sql`${blogPosts.views} + 1` })
       .where(eq(blogPosts.id, id));
+  }
+
+  // AI Chat Sessions
+  async createAiChatSession(session: InsertAiChatSession): Promise<AiChatSession> {
+    const [newSession] = await db.insert(aiChatSessions).values(session).returning();
+    return newSession;
+  }
+
+  async getAiChatSession(id: string): Promise<AiChatSession | undefined> {
+    const [session] = await db.select().from(aiChatSessions).where(eq(aiChatSessions.id, id));
+    return session || undefined;
+  }
+
+  async getAiChatMessages(sessionId: string): Promise<AiChatMessage[]> {
+    return db.select().from(aiChatMessages).where(eq(aiChatMessages.sessionId, sessionId)).orderBy(aiChatMessages.createdAt);
+  }
+
+  async createAiChatMessage(message: InsertAiChatMessage): Promise<AiChatMessage> {
+    const [newMessage] = await db.insert(aiChatMessages).values(message).returning();
+    return newMessage;
+  }
+
+  async getRelatedProducts(category?: string, limit: number = 4): Promise<Product[]> {
+    let query = db.select().from(products).where(eq(products.isPublished, true));
+    
+    if (category) {
+      query = db.select().from(products).where(and(eq(products.isPublished, true), eq(products.category, category)));
+    }
+    
+    const allProducts = await query;
+    const shuffled = allProducts.sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, limit);
   }
 }
 
