@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Send, Trash2, Eye } from "lucide-react";
+import { Mail, Send, Trash2, Eye, Sparkles, Loader2 } from "lucide-react";
 import { useState } from "react";
 import type { Newsletter, InsertNewsletter } from "@shared/schema";
 
@@ -70,6 +70,33 @@ export default function Newsletter() {
       toast({
         title: "Error",
         description: error?.message || "Failed to delete newsletter",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // AI content generation mutation
+  const generateMutation = useMutation({
+    mutationFn: async (data: { category: string; productIds?: string }) => {
+      const res = await apiRequest("POST", "/api/ai/generate-newsletter-content", data);
+      return res.json();
+    },
+    onSuccess: (data: { subject: string; content: string }) => {
+      setFormData((prev) => ({
+        ...prev,
+        subject: data.subject,
+        content: data.content,
+        title: prev.title || `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Newsletter`,
+      }));
+      toast({
+        title: "AI Content Generated",
+        description: "Newsletter subject and content generated. Feel free to edit!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to generate newsletter content",
         variant: "destructive",
       });
     },
@@ -144,6 +171,26 @@ export default function Newsletter() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => generateMutation.mutate({ category: selectedCategory, productIds: formData.productIds || undefined })}
+                  disabled={generateMutation.isPending}
+                  data-testid="button-generate-ai-content"
+                >
+                  {generateMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generate Content with AI
+                    </>
+                  )}
+                </Button>
 
                 <div className="space-y-2">
                   <Label htmlFor="title">Newsletter Title *</Label>

@@ -4,8 +4,9 @@ import { StorefrontHeader } from "@/components/StorefrontHeader";
 import { StorefrontFooter } from "@/components/StorefrontFooter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { ViewingCounter, LowStockBadge } from "@/components/ConversionBoosters";
-import { ShoppingCart, ArrowLeft, Package } from "lucide-react";
+import { ShoppingCart, ArrowLeft, Package, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import type { Product, CartItem } from "@shared/schema";
@@ -21,6 +22,16 @@ export default function ProductDetail() {
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", params?.id],
     enabled: !!params?.id,
+  });
+
+  const { data: recommendations = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products", params?.id, "recommendations"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${params?.id}/recommendations`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!params?.id && !!product,
   });
 
   useEffect(() => {
@@ -243,6 +254,48 @@ export default function ProductDetail() {
           </div>
         </div>
       </main>
+
+      {recommendations.length > 0 && (
+        <section className="border-t bg-muted/30 py-8 sm:py-12">
+          <div className="container mx-auto px-3 sm:px-4">
+            <div className="mb-6 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="text-xl sm:text-2xl font-bold">You May Also Like</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {recommendations.slice(0, 4).map((rec) => (
+                <Link key={rec.id} href={`/product/${rec.id}`}>
+                  <a className="block">
+                    <Card className="hover-elevate overflow-hidden transition-all" data-testid={`card-recommendation-${rec.id}`}>
+                      <div className="aspect-square bg-muted">
+                        {rec.imageUrl ? (
+                          <img
+                            src={rec.imageUrl}
+                            alt={rec.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <Package className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <CardContent className="p-3 sm:p-4">
+                        <h3 className="line-clamp-2 text-sm font-medium sm:text-base" data-testid={`text-rec-name-${rec.id}`}>
+                          {rec.name}
+                        </h3>
+                        <p className="mt-1 font-semibold text-primary" data-testid={`text-rec-price-${rec.id}`}>
+                          ${parseFloat(rec.price).toFixed(2)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </a>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <CartDrawer
         open={cartOpen}
