@@ -78,8 +78,11 @@ export default function Newsletter() {
   // AI content generation mutation
   const generateMutation = useMutation({
     mutationFn: async (data: { category: string; productIds?: string }) => {
-      const res = await apiRequest("POST", "/api/ai/generate-newsletter-content", data);
-      return res.json();
+      return await apiRequest("POST", "/api/ai/generate-newsletter-content", {
+        topic: data.category,
+        category: data.category,
+        productIds: data.productIds,
+      });
     },
     onSuccess: (data: { subject: string; content: string }) => {
       setFormData((prev) => ({
