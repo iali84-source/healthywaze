@@ -38,6 +38,7 @@ import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { AiChatbot } from "@/components/AiChatbot";
 
 function AdminPage() {
   const { isLoading, user } = useAuth();
@@ -161,6 +162,7 @@ function App() {
             <Route component={NotFound} />
           </Switch>
           <Toaster />
+          <AiChatbot />
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
