@@ -2701,6 +2701,7 @@ Format as JSON with keys: subject, content (HTML formatted)`,
   });
 
   // Merge guest cart to user on login
+  // This is a safe, idempotent operation - it only merges if the session cart has items
   app.post("/api/cart/merge", requireAuth, async (req, res) => {
     try {
       const userId = (req as any).user.id;
@@ -2710,20 +2711,35 @@ Format as JSON with keys: subject, content (HTML formatted)`,
         return res.status(400).json({ error: "Session token is required" });
       }
 
-      const mergedCart = await storage.mergeGuestCartToUser(sessionToken, userId);
+      // First check if the session cart has items before attempting merge
+      const sessionCart = await storage.getCartBySessionToken(sessionToken);
+      const sessionItems = sessionCart ? await storage.getCartItems(sessionCart.id) : [];
       
-      if (!mergedCart) {
-        // No guest cart to merge, get or create user cart
+      if (sessionItems.length === 0) {
+        // No items to merge - just return user's cart without modifying it
         let cart = await storage.getCartByUserId(userId);
         if (!cart) {
           cart = await storage.createCart({ userId, status: "active" });
         }
         const items = await storage.getCartItems(cart.id);
-        return res.json({ cart, items });
+        return res.json({ cart, items, merged: false, message: "No guest cart items to merge" });
+      }
+
+      // Session cart has items - perform the merge
+      const mergedCart = await storage.mergeGuestCartToUser(sessionToken, userId);
+      
+      if (!mergedCart) {
+        // Merge failed for some reason, get or create user cart
+        let cart = await storage.getCartByUserId(userId);
+        if (!cart) {
+          cart = await storage.createCart({ userId, status: "active" });
+        }
+        const items = await storage.getCartItems(cart.id);
+        return res.json({ cart, items, merged: false });
       }
 
       const items = await storage.getCartItems(mergedCart.id);
-      res.json({ cart: mergedCart, items });
+      res.json({ cart: mergedCart, items, merged: true, itemsMerged: sessionItems.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

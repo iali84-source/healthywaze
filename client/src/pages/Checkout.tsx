@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,18 @@ import { CheckoutTrustIndicators } from "@/components/TrustBadges";
 import { FreeShippingBar } from "@/components/ConversionBoosters";
 import { ArrowLeft, Lock, AlertCircle, Plus, MapPin, Trash2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import type { CartItem, CustomerAddress } from "@shared/schema";
+import type { CustomerAddress, Product } from "@shared/schema";
+
+type PersistentCartItem = {
+  id: number;
+  cartId: string;
+  productId: number;
+  variantId: string | null;
+  quantity: number;
+  unitPrice: string;
+  totalPrice: string;
+  product?: Product | null;
+};
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLIC_KEY 
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY)
@@ -152,10 +164,12 @@ const AddressForm = ({
 
 const CheckoutForm = ({ 
   cartItems, 
-  onSuccess 
+  onSuccess,
+  clearCart
 }: { 
-  cartItems: CartItem[]; 
+  cartItems: PersistentCartItem[]; 
   onSuccess: (orderId: string) => void;
+  clearCart: () => Promise<void>;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -330,7 +344,8 @@ const CheckoutForm = ({
         const response = await apiRequest("POST", "/api/orders", orderData);
         const order = await response.json();
         
-        localStorage.removeItem("cart");
+        await clearCart();
+        queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
         onSuccess(order.id);
       }
     } catch (error: any) {
@@ -536,52 +551,79 @@ const CheckoutForm = ({
 export default function Checkout() {
   const [, setLocation] = useLocation();
   const [clientSecret, setClientSecret] = useState("");
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { items: cartItems, clearCart } = useCart();
   const { toast } = useToast();
 
   useEffect(() => {
-    const saved = localStorage.getItem("cart");
-    if (saved) {
-      try {
-        const items = JSON.parse(saved);
-        if (items.length === 0) {
-          setLocation("/");
-          return;
-        }
-        setCartItems(items);
-
-        const cartItems = items.map((item: CartItem) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        }));
-
-        apiRequest("POST", "/api/create-payment-intent", { items: cartItems })
-          .then((res) => res.json())
-          .then((data) => {
-            setClientSecret(data.clientSecret);
-          })
-          .catch((error) => {
-            toast({
-              title: "Error",
-              description: "Failed to initialize checkout",
-              variant: "destructive",
-            });
-          });
-      } catch (e) {
-        setLocation("/");
-      }
-    } else {
-      setLocation("/");
+    if (cartItems.length === 0) {
+      return;
     }
-  }, [setLocation, toast]);
+
+    const itemsForPayment = cartItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }));
+
+    apiRequest("POST", "/api/create-payment-intent", { items: itemsForPayment })
+      .then((res) => res.json())
+      .then((data) => {
+        setClientSecret(data.clientSecret);
+      })
+      .catch((error) => {
+        toast({
+          title: "Error",
+          description: "Failed to initialize checkout",
+          variant: "destructive",
+        });
+      });
+  }, [cartItems.length, toast]);
 
   const subtotal = cartItems.reduce((sum, item) => {
-    return sum + parseFloat(item.price) * item.quantity;
+    const price = item.product?.price || item.unitPrice;
+    return sum + parseFloat(price) * item.quantity;
   }, 0);
 
   const handleSuccess = (orderId: string) => {
     setLocation(`/order-confirmation?order=${orderId}`);
   };
+
+  // Handle empty cart first
+  if (cartItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto max-w-2xl px-4">
+          <Link href="/">
+            <a>
+              <Button variant="ghost" className="mb-6" data-testid="button-back">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to store
+              </Button>
+            </a>
+          </Link>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
+                Your Cart is Empty
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                Add some items to your cart before proceeding to checkout.
+              </p>
+              <Link href="/">
+                <a>
+                  <Button className="w-full mt-4" data-testid="button-continue-shopping">
+                    Continue Shopping
+                  </Button>
+                </a>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (!stripePromise) {
     return (
@@ -651,7 +693,7 @@ export default function Checkout() {
           <div className="lg:col-span-2 order-2 lg:order-1">
             <CheckoutTrustIndicators />
             <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm cartItems={cartItems} onSuccess={handleSuccess} />
+              <CheckoutForm cartItems={cartItems} onSuccess={handleSuccess} clearCart={clearCart} />
             </Elements>
           </div>
 
@@ -662,16 +704,20 @@ export default function Checkout() {
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4">
                 <FreeShippingBar currentTotal={subtotal} threshold={50} />
-                {cartItems.map((item) => (
-                  <div key={item.productId} className="flex justify-between gap-2">
-                    <span className="text-xs sm:text-sm">
-                      {item.quantity}x {item.name}
-                    </span>
-                    <span className="text-xs sm:text-sm font-medium">
-                      ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                {cartItems.map((item) => {
+                  const price = item.product?.price || item.unitPrice;
+                  const name = item.product?.name || 'Product';
+                  return (
+                    <div key={item.id} className="flex justify-between gap-2">
+                      <span className="text-xs sm:text-sm">
+                        {item.quantity}x {name}
+                      </span>
+                      <span className="text-xs sm:text-sm font-medium">
+                        ${(parseFloat(price) * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })}
                 <Separator />
                 <div className="flex justify-between text-base sm:text-lg font-bold">
                   <span>Total</span>
