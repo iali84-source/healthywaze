@@ -46,6 +46,20 @@ import {
   type InsertAiChatSession,
   type AiChatMessage,
   type InsertAiChatMessage,
+  type Cart,
+  type InsertCart,
+  type CartItemDB,
+  type InsertCartItem,
+  type SavedForLater,
+  type InsertSavedForLater,
+  type ProductVariant,
+  type InsertProductVariant,
+  type ProductOption,
+  type InsertProductOption,
+  type OrderRevision,
+  type InsertOrderRevision,
+  type OrderTimelineEvent,
+  type InsertOrderTimelineEvent,
   products,
   orders,
   orderItems,
@@ -69,6 +83,13 @@ import {
   blogPosts,
   aiChatSessions,
   aiChatMessages,
+  carts,
+  cartItems,
+  savedForLater,
+  productVariants,
+  productOptions,
+  orderRevisions,
+  orderTimeline,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -209,6 +230,44 @@ export interface IStorage {
   getAiChatMessages(sessionId: string): Promise<AiChatMessage[]>;
   createAiChatMessage(message: InsertAiChatMessage): Promise<AiChatMessage>;
   getRelatedProducts(category?: string, limit?: number): Promise<Product[]>;
+
+  // Persistent Carts (Shopify-level)
+  getCart(id: string): Promise<Cart | undefined>;
+  getCartByUserId(userId: number): Promise<Cart | undefined>;
+  getCartBySessionToken(sessionToken: string): Promise<Cart | undefined>;
+  createCart(cart: InsertCart): Promise<Cart>;
+  updateCart(id: string, updates: Partial<InsertCart>): Promise<Cart | undefined>;
+  deleteCart(id: string): Promise<boolean>;
+  mergeGuestCartToUser(sessionToken: string, userId: number): Promise<Cart | undefined>;
+  
+  // Cart Items
+  getCartItems(cartId: string): Promise<CartItemDB[]>;
+  addCartItem(item: InsertCartItem): Promise<CartItemDB>;
+  updateCartItem(id: number, updates: Partial<InsertCartItem>): Promise<CartItemDB | undefined>;
+  removeCartItem(id: number): Promise<boolean>;
+  clearCart(cartId: string): Promise<boolean>;
+  recalculateCartTotals(cartId: string): Promise<Cart | undefined>;
+  
+  // Save for Later
+  getSavedForLater(userId: number): Promise<SavedForLater[]>;
+  saveForLater(item: InsertSavedForLater): Promise<SavedForLater>;
+  moveToCart(savedItemId: number, cartId: string): Promise<CartItemDB | undefined>;
+  removeSavedItem(id: number): Promise<boolean>;
+
+  // Product Variants
+  getProductVariants(productId: string): Promise<ProductVariant[]>;
+  getProductVariant(id: string): Promise<ProductVariant | undefined>;
+  createProductVariant(variant: InsertProductVariant): Promise<ProductVariant>;
+  updateProductVariant(id: string, updates: Partial<InsertProductVariant>): Promise<ProductVariant | undefined>;
+  deleteProductVariant(id: string): Promise<boolean>;
+
+  // Order Revisions (for order editing)
+  getOrderRevisions(orderId: string): Promise<OrderRevision[]>;
+  createOrderRevision(revision: InsertOrderRevision): Promise<OrderRevision>;
+  
+  // Order Timeline
+  getOrderTimeline(orderId: string): Promise<OrderTimelineEvent[]>;
+  addOrderTimelineEvent(event: InsertOrderTimelineEvent): Promise<OrderTimelineEvent>;
 
   // Session Store
   sessionStore: session.Store;
@@ -1063,6 +1122,243 @@ export class DatabaseStorage implements IStorage {
     const allProducts = await query;
     const shuffled = allProducts.sort(() => 0.5 - Math.random());
     return shuffled.slice(0, limit);
+  }
+
+  // ============================================
+  // PERSISTENT CART MANAGEMENT (Shopify-level)
+  // ============================================
+
+  async getCart(id: string): Promise<Cart | undefined> {
+    const [cart] = await db.select().from(carts).where(eq(carts.id, id));
+    return cart || undefined;
+  }
+
+  async getCartByUserId(userId: number): Promise<Cart | undefined> {
+    const [cart] = await db.select().from(carts)
+      .where(and(eq(carts.userId, userId), eq(carts.status, "active")));
+    return cart || undefined;
+  }
+
+  async getCartBySessionToken(sessionToken: string): Promise<Cart | undefined> {
+    const [cart] = await db.select().from(carts)
+      .where(and(eq(carts.sessionToken, sessionToken), eq(carts.status, "active")));
+    return cart || undefined;
+  }
+
+  async createCart(cart: InsertCart): Promise<Cart> {
+    const [newCart] = await db.insert(carts).values(cart).returning();
+    return newCart;
+  }
+
+  async updateCart(id: string, updates: Partial<InsertCart>): Promise<Cart | undefined> {
+    const [updatedCart] = await db
+      .update(carts)
+      .set({ ...updates, updatedAt: new Date(), lastActivityAt: new Date() })
+      .where(eq(carts.id, id))
+      .returning();
+    return updatedCart || undefined;
+  }
+
+  async deleteCart(id: string): Promise<boolean> {
+    const result = await db.delete(carts).where(eq(carts.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async mergeGuestCartToUser(sessionToken: string, userId: number): Promise<Cart | undefined> {
+    const guestCart = await this.getCartBySessionToken(sessionToken);
+    if (!guestCart) return undefined;
+
+    const userCart = await this.getCartByUserId(userId);
+    
+    if (userCart) {
+      const guestItems = await this.getCartItems(guestCart.id);
+      for (const item of guestItems) {
+        await this.addCartItem({
+          cartId: userCart.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+        });
+      }
+      await this.deleteCart(guestCart.id);
+      return this.recalculateCartTotals(userCart.id);
+    } else {
+      const [mergedCart] = await db
+        .update(carts)
+        .set({ userId, sessionToken: null, updatedAt: new Date() })
+        .where(eq(carts.id, guestCart.id))
+        .returning();
+      return mergedCart || undefined;
+    }
+  }
+
+  // Cart Items
+  async getCartItems(cartId: string): Promise<CartItemDB[]> {
+    return db.select().from(cartItems).where(eq(cartItems.cartId, cartId));
+  }
+
+  async addCartItem(item: InsertCartItem): Promise<CartItemDB> {
+    const existingItems = await db.select().from(cartItems)
+      .where(and(
+        eq(cartItems.cartId, item.cartId),
+        eq(cartItems.productId, item.productId)
+      ));
+    
+    if (existingItems.length > 0) {
+      const existing = existingItems[0];
+      const newQuantity = existing.quantity + (item.quantity || 1);
+      const newTotal = String(parseFloat(String(item.unitPrice)) * newQuantity);
+      
+      const [updated] = await db
+        .update(cartItems)
+        .set({ quantity: newQuantity, totalPrice: newTotal })
+        .where(eq(cartItems.id, existing.id))
+        .returning();
+      
+      await this.recalculateCartTotals(item.cartId);
+      return updated;
+    }
+
+    const [newItem] = await db.insert(cartItems).values(item).returning();
+    await this.recalculateCartTotals(item.cartId);
+    return newItem;
+  }
+
+  async updateCartItem(id: number, updates: Partial<InsertCartItem>): Promise<CartItemDB | undefined> {
+    const [item] = await db.select().from(cartItems).where(eq(cartItems.id, id));
+    if (!item) return undefined;
+
+    if (updates.quantity !== undefined && updates.unitPrice) {
+      updates.totalPrice = String(parseFloat(String(updates.unitPrice)) * updates.quantity);
+    } else if (updates.quantity !== undefined) {
+      updates.totalPrice = String(parseFloat(String(item.unitPrice)) * updates.quantity);
+    }
+
+    const [updatedItem] = await db
+      .update(cartItems)
+      .set(updates)
+      .where(eq(cartItems.id, id))
+      .returning();
+
+    if (updatedItem) {
+      await this.recalculateCartTotals(updatedItem.cartId);
+    }
+    return updatedItem || undefined;
+  }
+
+  async removeCartItem(id: number): Promise<boolean> {
+    const [item] = await db.select().from(cartItems).where(eq(cartItems.id, id));
+    if (!item) return false;
+
+    const result = await db.delete(cartItems).where(eq(cartItems.id, id));
+    await this.recalculateCartTotals(item.cartId);
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async clearCart(cartId: string): Promise<boolean> {
+    await db.delete(cartItems).where(eq(cartItems.cartId, cartId));
+    await this.updateCart(cartId, { subtotal: "0", total: "0", discountAmount: "0" });
+    return true;
+  }
+
+  async recalculateCartTotals(cartId: string): Promise<Cart | undefined> {
+    const items = await this.getCartItems(cartId);
+    const subtotal = items.reduce((sum, item) => sum + parseFloat(String(item.totalPrice)), 0);
+    
+    const cart = await this.getCart(cartId);
+    const discountAmount = cart ? parseFloat(String(cart.discountAmount)) : 0;
+    const total = Math.max(0, subtotal - discountAmount);
+
+    return this.updateCart(cartId, {
+      subtotal: String(subtotal.toFixed(2)),
+      total: String(total.toFixed(2)),
+    });
+  }
+
+  // Save for Later
+  async getSavedForLater(userId: number): Promise<SavedForLater[]> {
+    return db.select().from(savedForLater).where(eq(savedForLater.userId, userId));
+  }
+
+  async saveForLater(item: InsertSavedForLater): Promise<SavedForLater> {
+    const [saved] = await db.insert(savedForLater).values(item).returning();
+    return saved;
+  }
+
+  async moveToCart(savedItemId: number, cartId: string): Promise<CartItemDB | undefined> {
+    const [saved] = await db.select().from(savedForLater).where(eq(savedForLater.id, savedItemId));
+    if (!saved) return undefined;
+
+    const [product] = await db.select().from(products).where(eq(products.id, saved.productId));
+    if (!product) return undefined;
+
+    const cartItem = await this.addCartItem({
+      cartId,
+      productId: saved.productId,
+      variantId: saved.variantId,
+      quantity: 1,
+      unitPrice: product.price,
+      totalPrice: product.price,
+    });
+
+    await this.removeSavedItem(savedItemId);
+    return cartItem;
+  }
+
+  async removeSavedItem(id: number): Promise<boolean> {
+    const result = await db.delete(savedForLater).where(eq(savedForLater.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Product Variants
+  async getProductVariants(productId: string): Promise<ProductVariant[]> {
+    return db.select().from(productVariants).where(eq(productVariants.productId, productId));
+  }
+
+  async getProductVariant(id: string): Promise<ProductVariant | undefined> {
+    const [variant] = await db.select().from(productVariants).where(eq(productVariants.id, id));
+    return variant || undefined;
+  }
+
+  async createProductVariant(variant: InsertProductVariant): Promise<ProductVariant> {
+    const [newVariant] = await db.insert(productVariants).values(variant).returning();
+    return newVariant;
+  }
+
+  async updateProductVariant(id: string, updates: Partial<InsertProductVariant>): Promise<ProductVariant | undefined> {
+    const [updatedVariant] = await db
+      .update(productVariants)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(productVariants.id, id))
+      .returning();
+    return updatedVariant || undefined;
+  }
+
+  async deleteProductVariant(id: string): Promise<boolean> {
+    const result = await db.delete(productVariants).where(eq(productVariants.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Order Revisions
+  async getOrderRevisions(orderId: string): Promise<OrderRevision[]> {
+    return db.select().from(orderRevisions).where(eq(orderRevisions.orderId, orderId)).orderBy(desc(orderRevisions.createdAt));
+  }
+
+  async createOrderRevision(revision: InsertOrderRevision): Promise<OrderRevision> {
+    const [newRevision] = await db.insert(orderRevisions).values(revision).returning();
+    return newRevision;
+  }
+
+  // Order Timeline
+  async getOrderTimeline(orderId: string): Promise<OrderTimelineEvent[]> {
+    return db.select().from(orderTimeline).where(eq(orderTimeline.orderId, orderId)).orderBy(orderTimeline.createdAt);
+  }
+
+  async addOrderTimelineEvent(event: InsertOrderTimelineEvent): Promise<OrderTimelineEvent> {
+    const [newEvent] = await db.insert(orderTimeline).values(event).returning();
+    return newEvent;
   }
 }
 
