@@ -7,16 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ViewingCounter, LowStockBadge } from "@/components/ConversionBoosters";
 import { ShoppingCart, ArrowLeft, Package, Sparkles } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
-import type { Product, CartItem } from "@shared/schema";
+import { useState } from "react";
+import type { Product } from "@shared/schema";
 import { CartDrawer } from "@/components/CartDrawer";
+import { useCart } from "@/hooks/use-cart";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
-  const { toast } = useToast();
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { itemCount: cartItemCount, setCartOpen, addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
 
   const { data: product, isLoading } = useQuery<Product>({
@@ -34,72 +32,11 @@ export default function ProductDetail() {
     enabled: !!params?.id && !!product,
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem("cart");
-    if (saved) {
-      try {
-        setCartItems(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to load cart:", e);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cartItems));
-  }, [cartItems]);
-
   const handleAddToCart = () => {
     if (!product) return;
-
-    const existing = cartItems.find((item) => item.productId === product.id);
-
-    if (existing) {
-      setCartItems(
-        cartItems.map((item) =>
-          item.productId === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        )
-      );
-    } else {
-      setCartItems([
-        ...cartItems,
-        {
-          productId: product.id,
-          name: product.name,
-          price: product.price,
-          quantity,
-          imageUrl: product.imageUrl || undefined,
-        },
-      ]);
-    }
-
-    toast({
-      title: "Added to cart",
-      description: `${quantity}x ${product.name} added to cart`,
-    });
-
+    addToCart(product, quantity);
     setQuantity(1);
   };
-
-  const handleUpdateQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      setCartItems(cartItems.filter((item) => item.productId !== productId));
-    } else {
-      setCartItems(
-        cartItems.map((item) =>
-          item.productId === productId ? { ...item, quantity: newQuantity } : item
-        )
-      );
-    }
-  };
-
-  const handleRemoveItem = (productId: string) => {
-    setCartItems(cartItems.filter((item) => item.productId !== productId));
-  };
-
-  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   if (isLoading) {
     return (
@@ -297,13 +234,7 @@ export default function ProductDetail() {
         </section>
       )}
 
-      <CartDrawer
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
-      />
+      <CartDrawer />
 
       <StorefrontFooter />
     </div>

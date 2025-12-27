@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { StorefrontHeader } from "@/components/StorefrontHeader";
 import { StorefrontFooter } from "@/components/StorefrontFooter";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { CartDrawer } from "@/components/CartDrawer";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ShoppingCart,
@@ -32,8 +33,7 @@ import healthyWazeLogo from "@assets/generated_images/healthywaze_professional_w
 
 export default function Home() {
   const { toast } = useToast();
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { items: cartItems, cartOpen, setCartOpen, addToCart, updateQuantity, removeFromCart, itemCount: cartItemCount } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
   const [email, setEmail] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -67,66 +67,17 @@ export default function Home() {
     },
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem("cart");
-    if (saved) {
-      try {
-        setCartItems(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to load cart:", e);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cartItems));
-  }, [cartItems]);
-
   const handleAddToCart = (product: Product) => {
-    const existing = cartItems.find((item) => item.productId === product.id);
-    if (existing) {
-      setCartItems(
-        cartItems.map((item) =>
-          item.productId === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      );
-    } else {
-      setCartItems([
-        ...cartItems,
-        {
-          productId: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1,
-          imageUrl: product.imageUrl || undefined,
-        },
-      ]);
-    }
-    toast({
-      title: "Added to cart",
-      description: `${product.name} added to cart`,
-    });
+    addToCart(product, 1);
   };
 
-  const handleUpdateQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      setCartItems(cartItems.filter((item) => item.productId !== productId));
-    } else {
-      setCartItems(
-        cartItems.map((item) =>
-          item.productId === productId ? { ...item, quantity: newQuantity } : item
-        )
-      );
-    }
+  const handleUpdateQuantity = (itemId: number, newQuantity: number) => {
+    updateQuantity(itemId, newQuantity);
   };
 
-  const handleRemoveItem = (productId: string) => {
-    setCartItems(cartItems.filter((item) => item.productId !== productId));
+  const handleRemoveItem = (itemId: number) => {
+    removeFromCart(itemId);
   };
-
-  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const publishedProducts = products.filter((p) => p.isPublished);
   const featuredProducts = publishedProducts.filter((p) => p.isFeatured);
@@ -463,13 +414,7 @@ export default function Home() {
       <StorefrontFooter />
 
       {/* Cart Drawer */}
-      <CartDrawer
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
-      />
+      <CartDrawer />
 
       {/* Social Proof */}
       <SocialProofNotification />

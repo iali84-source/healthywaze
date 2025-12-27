@@ -7,32 +7,26 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { FreeShippingBar } from "@/components/ConversionBoosters";
-import { Minus, Plus, X } from "lucide-react";
-import type { CartItem } from "@shared/schema";
+import { Minus, Plus, X, Package } from "lucide-react";
 import { useLocation } from "wouter";
+import { useCart } from "@/hooks/use-cart";
 
-interface CartDrawerProps {
-  open: boolean;
-  onClose: () => void;
-  items: CartItem[];
-  onUpdateQuantity: (productId: string, quantity: number) => void;
-  onRemoveItem: (productId: string) => void;
-}
-
-export function CartDrawer({ open, onClose, items, onUpdateQuantity, onRemoveItem }: CartDrawerProps) {
+export function CartDrawer() {
   const [, setLocation] = useLocation();
+  const { items, cartOpen, setCartOpen, updateQuantity, removeFromCart } = useCart();
 
   const subtotal = items.reduce((sum, item) => {
-    return sum + parseFloat(item.price) * item.quantity;
+    const price = item.product?.price || item.unitPrice;
+    return sum + parseFloat(price) * item.quantity;
   }, 0);
 
   const handleCheckout = () => {
-    onClose();
+    setCartOpen(false);
     setLocation("/checkout");
   };
 
   return (
-    <Sheet open={open} onOpenChange={onClose}>
+    <Sheet open={cartOpen} onOpenChange={setCartOpen}>
       <SheetContent className="flex w-full flex-col sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Shopping Cart</SheetTitle>
@@ -48,74 +42,80 @@ export function CartDrawer({ open, onClose, items, onUpdateQuantity, onRemoveIte
             </div>
           ) : (
             <div className="space-y-4">
-              {items.map((item) => (
-                <div
-                  key={item.productId}
-                  className="flex gap-4 rounded-md border p-4"
-                  data-testid={`cart-item-${item.productId}`}
-                >
-                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <span className="text-2xl text-muted-foreground">📦</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-1 flex-col">
-                    <div className="flex justify-between">
-                      <h4 className="font-medium" data-testid={`text-cart-item-name-${item.productId}`}>
-                        {item.name}
-                      </h4>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => onRemoveItem(item.productId)}
-                        data-testid={`button-remove-item-${item.productId}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+              {items.map((item) => {
+                const price = item.product?.price || item.unitPrice;
+                const name = item.product?.name || 'Product';
+                const imageUrl = item.product?.imageUrl;
+                
+                return (
+                  <div
+                    key={item.id}
+                    className="flex gap-4 rounded-md border p-4"
+                    data-testid={`cart-item-${item.id}`}
+                  >
+                    <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Package className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2 rounded-md border">
+                    <div className="flex flex-1 flex-col">
+                      <div className="flex justify-between">
+                        <h4 className="font-medium" data-testid={`text-cart-item-name-${item.id}`}>
+                          {name}
+                        </h4>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
-                          onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
-                          data-testid={`button-decrease-${item.productId}`}
+                          className="h-6 w-6"
+                          onClick={() => removeFromCart(item.id)}
+                          data-testid={`button-remove-item-${item.id}`}
                         >
-                          <Minus className="h-3 w-3" />
+                          <X className="h-4 w-4" />
                         </Button>
-                        <span className="min-w-8 text-center" data-testid={`text-quantity-${item.productId}`}>
-                          {item.quantity}
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2 rounded-md border">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
+                            data-testid={`button-decrease-${item.id}`}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="min-w-8 text-center" data-testid={`text-quantity-${item.id}`}>
+                            {item.quantity}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            data-testid={`button-increase-${item.id}`}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <span className="font-semibold" data-testid={`text-item-total-${item.id}`}>
+                          ${(parseFloat(price) * item.quantity).toFixed(2)}
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
-                          data-testid={`button-increase-${item.productId}`}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
                       </div>
-                      <span className="font-semibold" data-testid={`text-item-total-${item.productId}`}>
-                        ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

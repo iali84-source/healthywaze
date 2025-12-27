@@ -37,6 +37,7 @@ import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { CartProvider } from "@/hooks/use-cart";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { AiChatbot } from "@/components/AiChatbot";
 
@@ -117,8 +118,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Switch>
+        <CartProvider>
+          <TooltipProvider>
+            <Switch>
             {/* Auth route */}
             <Route path="/auth" component={AuthPage} />
             
@@ -160,10 +162,11 @@ function App() {
             
             {/* 404 */}
             <Route component={NotFound} />
-          </Switch>
-          <Toaster />
-          <AiChatbot />
-        </TooltipProvider>
+            </Switch>
+            <Toaster />
+            <AiChatbot />
+          </TooltipProvider>
+        </CartProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
