@@ -60,6 +60,18 @@ import {
   type InsertOrderRevision,
   type OrderTimelineEvent,
   type InsertOrderTimelineEvent,
+  type MarketingSession,
+  type InsertMarketingSession,
+  type PromoCode,
+  type InsertPromoCode,
+  type PromoCodeUsage,
+  type InsertPromoCodeUsage,
+  type CustomerMetrics,
+  type InsertCustomerMetrics,
+  type PostPurchaseSurvey,
+  type InsertPostPurchaseSurvey,
+  type MarketingCampaign,
+  type InsertMarketingCampaign,
   products,
   orders,
   orderItems,
@@ -90,6 +102,12 @@ import {
   productOptions,
   orderRevisions,
   orderTimeline,
+  marketingSessions,
+  promoCodes,
+  promoCodeUsages,
+  customerMetrics,
+  postPurchaseSurveys,
+  marketingCampaigns,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -1005,11 +1023,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNewsletterSubscribers(category?: string): Promise<NewsletterSubscriber[]> {
-    let query = db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.isSubscribed, true));
     if (category) {
-      query = query.where(eq(newsletterSubscribers.category, category)) as any;
+      return db.select().from(newsletterSubscribers).where(
+        and(
+          eq(newsletterSubscribers.isSubscribed, true),
+          eq(newsletterSubscribers.category, category)
+        )
+      );
     }
-    return query;
+    return db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.isSubscribed, true));
   }
 
   async subscribeToNewsletter(subscriber: InsertNewsletterSubscriber): Promise<NewsletterSubscriber> {
@@ -1359,6 +1381,375 @@ export class DatabaseStorage implements IStorage {
   async addOrderTimelineEvent(event: InsertOrderTimelineEvent): Promise<OrderTimelineEvent> {
     const [newEvent] = await db.insert(orderTimeline).values(event).returning();
     return newEvent;
+  }
+
+  // ============================================
+  // MARKETING ATTRIBUTION & ROI OPTIMIZATION
+  // ============================================
+
+  // Marketing Sessions (UTM tracking)
+  async createMarketingSession(session: InsertMarketingSession): Promise<MarketingSession> {
+    const [newSession] = await db.insert(marketingSessions).values(session).returning();
+    return newSession;
+  }
+
+  async getMarketingSession(visitorId: string): Promise<MarketingSession | undefined> {
+    const [session] = await db.select().from(marketingSessions).where(eq(marketingSessions.visitorId, visitorId));
+    return session;
+  }
+
+  async updateMarketingSession(id: string, updates: Partial<InsertMarketingSession>): Promise<MarketingSession | undefined> {
+    const [updated] = await db.update(marketingSessions)
+      .set({ ...updates, lastSeen: new Date() })
+      .where(eq(marketingSessions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async markSessionConverted(visitorId: string, orderId: string, orderTotal: string): Promise<void> {
+    await db.update(marketingSessions)
+      .set({ 
+        convertedToOrder: true, 
+        orderId, 
+        orderTotal,
+        lastSeen: new Date() 
+      })
+      .where(eq(marketingSessions.visitorId, visitorId));
+  }
+
+  async getMarketingAnalytics(): Promise<{
+    bySource: { source: string; sessions: number; conversions: number; revenue: number }[];
+    byCampaign: { campaign: string; sessions: number; conversions: number; revenue: number }[];
+    byMedium: { medium: string; sessions: number; conversions: number; revenue: number }[];
+  }> {
+    const bySource = await db.execute(sql`
+      SELECT 
+        COALESCE(utm_source, 'direct') as source,
+        COUNT(*) as sessions,
+        COUNT(*) FILTER (WHERE converted_to_order = true) as conversions,
+        COALESCE(SUM(CASE WHEN converted_to_order = true THEN order_total ELSE 0 END), 0) as revenue
+      FROM marketing_sessions
+      GROUP BY utm_source
+      ORDER BY revenue DESC
+    `);
+
+    const byCampaign = await db.execute(sql`
+      SELECT 
+        COALESCE(utm_campaign, 'none') as campaign,
+        COUNT(*) as sessions,
+        COUNT(*) FILTER (WHERE converted_to_order = true) as conversions,
+        COALESCE(SUM(CASE WHEN converted_to_order = true THEN order_total ELSE 0 END), 0) as revenue
+      FROM marketing_sessions
+      WHERE utm_campaign IS NOT NULL
+      GROUP BY utm_campaign
+      ORDER BY revenue DESC
+    `);
+
+    const byMedium = await db.execute(sql`
+      SELECT 
+        COALESCE(utm_medium, 'none') as medium,
+        COUNT(*) as sessions,
+        COUNT(*) FILTER (WHERE converted_to_order = true) as conversions,
+        COALESCE(SUM(CASE WHEN converted_to_order = true THEN order_total ELSE 0 END), 0) as revenue
+      FROM marketing_sessions
+      GROUP BY utm_medium
+      ORDER BY revenue DESC
+    `);
+
+    return {
+      bySource: bySource.rows as any[],
+      byCampaign: byCampaign.rows as any[],
+      byMedium: byMedium.rows as any[],
+    };
+  }
+
+  // Promo Codes
+  async getPromoCodes(): Promise<PromoCode[]> {
+    return db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt));
+  }
+
+  async getPromoCode(id: string): Promise<PromoCode | undefined> {
+    const [code] = await db.select().from(promoCodes).where(eq(promoCodes.id, id));
+    return code;
+  }
+
+  async getPromoCodeByCode(code: string): Promise<PromoCode | undefined> {
+    const [promoCode] = await db.select().from(promoCodes)
+      .where(and(
+        eq(promoCodes.code, code.toUpperCase()),
+        eq(promoCodes.isActive, true)
+      ));
+    return promoCode;
+  }
+
+  async createPromoCode(code: InsertPromoCode): Promise<PromoCode> {
+    const [newCode] = await db.insert(promoCodes).values({
+      ...code,
+      code: code.code.toUpperCase(),
+    }).returning();
+    return newCode;
+  }
+
+  async updatePromoCode(id: string, updates: Partial<InsertPromoCode>): Promise<PromoCode | undefined> {
+    const [updated] = await db.update(promoCodes)
+      .set(updates)
+      .where(eq(promoCodes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async applyPromoCode(codeString: string, orderTotal: number, userId?: number): Promise<{ 
+    valid: boolean; 
+    discountAmount?: number; 
+    promoCode?: PromoCode; 
+    error?: string 
+  }> {
+    const code = await this.getPromoCodeByCode(codeString);
+    if (!code) return { valid: false, error: 'Invalid promo code' };
+
+    // Check expiration
+    if (code.expiresAt && new Date(code.expiresAt) < new Date()) {
+      return { valid: false, error: 'Promo code has expired' };
+    }
+
+    // Check start date
+    if (code.startsAt && new Date(code.startsAt) > new Date()) {
+      return { valid: false, error: 'Promo code is not yet active' };
+    }
+
+    // Check max uses
+    if (code.maxUses !== null && code.usedCount >= code.maxUses) {
+      return { valid: false, error: 'Promo code usage limit reached' };
+    }
+
+    // Check minimum order
+    if (code.minimumOrder && orderTotal < parseFloat(code.minimumOrder)) {
+      return { valid: false, error: `Minimum order of $${code.minimumOrder} required` };
+    }
+
+    // Calculate discount
+    let discountAmount = 0;
+    if (code.discountType === 'percentage') {
+      discountAmount = (orderTotal * parseFloat(code.discountValue)) / 100;
+    } else {
+      discountAmount = Math.min(parseFloat(code.discountValue), orderTotal);
+    }
+
+    return { valid: true, discountAmount, promoCode: code };
+  }
+
+  async recordPromoCodeUsage(usage: InsertPromoCodeUsage): Promise<PromoCodeUsage> {
+    const [recorded] = await db.insert(promoCodeUsages).values(usage).returning();
+    
+    // Update promo code stats
+    await db.update(promoCodes)
+      .set({
+        usedCount: sql`${promoCodes.usedCount} + 1`,
+        totalRevenue: sql`${promoCodes.totalRevenue} + ${usage.orderTotal}`,
+        totalDiscount: sql`${promoCodes.totalDiscount} + ${usage.discountAmount}`,
+      })
+      .where(eq(promoCodes.id, usage.promoCodeId));
+    
+    return recorded;
+  }
+
+  // Customer Metrics (CLV)
+  async getCustomerMetrics(userId: number): Promise<CustomerMetrics | undefined> {
+    const [metrics] = await db.select().from(customerMetrics).where(eq(customerMetrics.userId, userId));
+    return metrics;
+  }
+
+  async updateCustomerMetrics(userId: number, orderTotal: number, acquisitionSource?: string, acquisitionCampaign?: string): Promise<CustomerMetrics> {
+    const existing = await this.getCustomerMetrics(userId);
+    
+    if (existing) {
+      // Update existing metrics
+      const newTotalOrders = existing.totalOrders + 1;
+      const newTotalSpent = parseFloat(existing.totalSpent) + orderTotal;
+      const newAvgOrderValue = newTotalSpent / newTotalOrders;
+      
+      // Estimate CLV (simple: avg order value * expected orders per year * 3 years)
+      const estimatedClv = newAvgOrderValue * 2 * 3;
+      
+      const [updated] = await db.update(customerMetrics)
+        .set({
+          totalOrders: newTotalOrders,
+          totalSpent: String(newTotalSpent.toFixed(2)),
+          averageOrderValue: String(newAvgOrderValue.toFixed(2)),
+          lastOrderDate: new Date(),
+          estimatedLifetimeValue: String(estimatedClv.toFixed(2)),
+          segment: this.calculateCustomerSegment(newTotalOrders, newTotalSpent),
+          updatedAt: new Date(),
+        })
+        .where(eq(customerMetrics.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      // Create new metrics record
+      const [created] = await db.insert(customerMetrics).values({
+        userId,
+        totalOrders: 1,
+        totalSpent: String(orderTotal.toFixed(2)),
+        averageOrderValue: String(orderTotal.toFixed(2)),
+        firstOrderDate: new Date(),
+        lastOrderDate: new Date(),
+        acquisitionSource,
+        acquisitionCampaign,
+        estimatedLifetimeValue: String((orderTotal * 2 * 3).toFixed(2)),
+        segment: 'new',
+      }).returning();
+      return created;
+    }
+  }
+
+  private calculateCustomerSegment(totalOrders: number, totalSpent: number): string {
+    if (totalSpent >= 500 || totalOrders >= 10) return 'vip';
+    if (totalOrders >= 3) return 'active';
+    if (totalOrders >= 1) return 'new';
+    return 'new';
+  }
+
+  async getCustomerSegmentStats(): Promise<{
+    segment: string;
+    count: number;
+    avgLifetimeValue: number;
+    totalRevenue: number;
+  }[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        segment,
+        COUNT(*) as count,
+        AVG(estimated_lifetime_value::numeric) as avg_lifetime_value,
+        SUM(total_spent::numeric) as total_revenue
+      FROM customer_metrics
+      GROUP BY segment
+      ORDER BY total_revenue DESC
+    `);
+    return result.rows as any[];
+  }
+
+  // Post-Purchase Surveys
+  async createPostPurchaseSurvey(survey: InsertPostPurchaseSurvey): Promise<PostPurchaseSurvey> {
+    const [created] = await db.insert(postPurchaseSurveys).values(survey).returning();
+    return created;
+  }
+
+  async getSurveyStats(): Promise<{
+    heardAboutUs: { source: string; count: number }[];
+    avgSatisfaction: number;
+    wouldRecommendPercent: number;
+  }> {
+    const heardAboutUsResult = await db.execute(sql`
+      SELECT 
+        COALESCE(heard_about_us, 'unknown') as source,
+        COUNT(*) as count
+      FROM post_purchase_surveys
+      WHERE heard_about_us IS NOT NULL
+      GROUP BY heard_about_us
+      ORDER BY count DESC
+    `);
+
+    const statsResult = await db.execute(sql`
+      SELECT 
+        AVG(satisfaction_rating) as avg_satisfaction,
+        (COUNT(*) FILTER (WHERE would_recommend = true) * 100.0 / NULLIF(COUNT(*), 0)) as would_recommend_percent
+      FROM post_purchase_surveys
+    `);
+
+    const stats = statsResult.rows[0] as any || {};
+
+    return {
+      heardAboutUs: heardAboutUsResult.rows as any[],
+      avgSatisfaction: parseFloat(stats.avg_satisfaction) || 0,
+      wouldRecommendPercent: parseFloat(stats.would_recommend_percent) || 0,
+    };
+  }
+
+  // Marketing Campaigns (for ROAS)
+  async getMarketingCampaigns(): Promise<MarketingCampaign[]> {
+    return db.select().from(marketingCampaigns).orderBy(desc(marketingCampaigns.createdAt));
+  }
+
+  async getMarketingCampaign(id: string): Promise<MarketingCampaign | undefined> {
+    const [campaign] = await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.id, id));
+    return campaign;
+  }
+
+  async createMarketingCampaign(campaign: InsertMarketingCampaign): Promise<MarketingCampaign> {
+    const [created] = await db.insert(marketingCampaigns).values(campaign).returning();
+    return created;
+  }
+
+  async updateMarketingCampaign(id: string, updates: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign | undefined> {
+    const [updated] = await db.update(marketingCampaigns)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(marketingCampaigns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateCampaignMetrics(utmCampaign: string, utmSource: string): Promise<void> {
+    // Get revenue from marketing sessions that converted
+    const result = await db.execute(sql`
+      SELECT 
+        COUNT(*) FILTER (WHERE converted_to_order = true) as conversions,
+        COALESCE(SUM(CASE WHEN converted_to_order = true THEN order_total ELSE 0 END), 0) as revenue
+      FROM marketing_sessions
+      WHERE utm_campaign = ${utmCampaign} AND utm_source = ${utmSource}
+    `);
+
+    const stats = result.rows[0] as any;
+    if (!stats) return;
+
+    // Update the matching campaign
+    await db.update(marketingCampaigns)
+      .set({
+        conversions: parseInt(stats.conversions) || 0,
+        revenue: String(parseFloat(stats.revenue) || 0),
+        roas: sql`CASE WHEN total_spend > 0 THEN ${stats.revenue}::numeric / total_spend::numeric ELSE 0 END`,
+        cpa: sql`CASE WHEN ${stats.conversions}::numeric > 0 THEN total_spend::numeric / ${stats.conversions}::numeric ELSE 0 END`,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(marketingCampaigns.utmCampaign, utmCampaign),
+        eq(marketingCampaigns.utmSource, utmSource)
+      ));
+  }
+
+  async getMarketingROIDashboard(): Promise<{
+    totalSpend: number;
+    totalRevenue: number;
+    overallRoas: number;
+    totalConversions: number;
+    avgCpa: number;
+    topCampaigns: MarketingCampaign[];
+  }> {
+    const summaryResult = await db.execute(sql`
+      SELECT 
+        COALESCE(SUM(total_spend::numeric), 0) as total_spend,
+        COALESCE(SUM(revenue::numeric), 0) as total_revenue,
+        COALESCE(SUM(conversions), 0) as total_conversions
+      FROM marketing_campaigns
+    `);
+
+    const summary = summaryResult.rows[0] as any || {};
+    const totalSpend = parseFloat(summary.total_spend) || 0;
+    const totalRevenue = parseFloat(summary.total_revenue) || 0;
+    const totalConversions = parseInt(summary.total_conversions) || 0;
+
+    const topCampaigns = await db.select()
+      .from(marketingCampaigns)
+      .orderBy(desc(marketingCampaigns.revenue))
+      .limit(5);
+
+    return {
+      totalSpend,
+      totalRevenue,
+      overallRoas: totalSpend > 0 ? totalRevenue / totalSpend : 0,
+      totalConversions,
+      avgCpa: totalConversions > 0 ? totalSpend / totalConversions : 0,
+      topCampaigns,
+    };
   }
 }
 

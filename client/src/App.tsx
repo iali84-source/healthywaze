@@ -30,6 +30,7 @@ import ProductSelection from "@/pages/admin/ProductSelection";
 import DebugDashboard from "@/pages/admin/DebugDashboard";
 import Newsletter from "@/pages/admin/Newsletter";
 import BlogManager from "@/pages/admin/BlogManager";
+import MarketingROI from "@/pages/admin/MarketingROI";
 import AuthPage from "@/pages/AuthPage";
 import LogoShowcase from "@/pages/LogoShowcase";
 import Blog from "@/pages/Blog";
@@ -38,6 +39,7 @@ import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { CartProvider } from "@/hooks/use-cart";
+import { useMarketingTracker } from "@/hooks/use-marketing";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { AiChatbot } from "@/components/AiChatbot";
 
@@ -99,9 +101,15 @@ function AdminPageRouter() {
       <Route path="/admin/tutorial" component={Tutorial} />
       <Route path="/admin/newsletter" component={Newsletter} />
       <Route path="/admin/blog" component={BlogManager} />
+      <Route path="/admin/marketing" component={MarketingROI} />
       <Route component={NotFound} />
     </Switch>
   );
+}
+
+function MarketingTracker() {
+  useMarketingTracker();
+  return null;
 }
 
 function App() {
@@ -139,6 +147,7 @@ function App() {
             <Route path="/admin/tutorial" component={AdminPage} />
             <Route path="/admin/newsletter" component={AdminPage} />
             <Route path="/admin/blog" component={AdminPage} />
+            <Route path="/admin/marketing" component={AdminPage} />
             
             {/* Logo Showcase */}
             <Route path="/logo" component={LogoShowcase} />
@@ -165,6 +174,7 @@ function App() {
             </Switch>
             <Toaster />
             <AiChatbot />
+            <MarketingTracker />
           </TooltipProvider>
         </CartProvider>
       </AuthProvider>

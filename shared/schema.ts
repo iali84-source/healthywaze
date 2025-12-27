@@ -889,3 +889,228 @@ export type AiChatSession = typeof aiChatSessions.$inferSelect;
 export type InsertAiChatSession = z.infer<typeof insertAiChatSessionSchema>;
 export type AiChatMessage = typeof aiChatMessages.$inferSelect;
 export type InsertAiChatMessage = z.infer<typeof insertAiChatMessageSchema>;
+
+// ============================================
+// MARKETING ATTRIBUTION & ROI OPTIMIZATION
+// ============================================
+
+// Marketing sessions - captures UTM parameters and ad click data
+export const marketingSessions = pgTable("marketing_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  visitorId: text("visitor_id").notNull(), // Session token from cart
+  userId: integer("user_id").references(() => users.id),
+  
+  // UTM Parameters (from Google Ads, Facebook, etc.)
+  utmSource: text("utm_source"), // google, facebook, instagram, email
+  utmMedium: text("utm_medium"), // cpc, organic, social, email
+  utmCampaign: text("utm_campaign"), // spring_sale, wellness_promo
+  utmTerm: text("utm_term"), // keyword for paid search
+  utmContent: text("utm_content"), // ad variation identifier
+  
+  // Google Ads specific
+  gclid: text("gclid"), // Google Click ID for conversion tracking
+  gbraid: text("gbraid"), // Google App conversion tracking
+  wbraid: text("wbraid"), // Web-to-App conversion tracking
+  
+  // Facebook/Meta specific
+  fbclid: text("fbclid"), // Facebook Click ID
+  
+  // Landing page and referrer
+  landingPage: text("landing_page"),
+  referrer: text("referrer"),
+  
+  // Device info
+  deviceType: text("device_type"), // mobile, desktop, tablet
+  browser: text("browser"),
+  
+  // Session timing
+  firstSeen: timestamp("first_seen").notNull().default(sql`now()`),
+  lastSeen: timestamp("last_seen").notNull().default(sql`now()`),
+  
+  // Conversion tracking
+  convertedToOrder: boolean("converted_to_order").default(false),
+  orderId: varchar("order_id").references(() => orders.id),
+  orderTotal: decimal("order_total", { precision: 10, scale: 2 }),
+});
+
+// Promo codes for campaign tracking
+export const promoCodes = pgTable("promo_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  
+  // Discount settings
+  discountType: text("discount_type").notNull().default("percentage"), // percentage, fixed
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
+  minimumOrder: decimal("minimum_order", { precision: 10, scale: 2 }).default("0"),
+  
+  // Usage limits
+  maxUses: integer("max_uses"), // null = unlimited
+  usedCount: integer("used_count").notNull().default(0),
+  maxUsesPerCustomer: integer("max_uses_per_customer").default(1),
+  
+  // Campaign tracking
+  campaignName: text("campaign_name"), // Links to utm_campaign
+  source: text("source"), // google, facebook, influencer_john
+  
+  // Validity
+  startsAt: timestamp("starts_at"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Metrics (calculated)
+  totalRevenue: decimal("total_revenue", { precision: 10, scale: 2 }).default("0"),
+  totalDiscount: decimal("total_discount", { precision: 10, scale: 2 }).default("0"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Promo code usage tracking
+export const promoCodeUsages = pgTable("promo_code_usages", {
+  id: serial("id").primaryKey(),
+  promoCodeId: varchar("promo_code_id").notNull().references(() => promoCodes.id),
+  orderId: varchar("order_id").notNull().references(() => orders.id),
+  userId: integer("user_id").references(() => users.id),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull(),
+  orderTotal: decimal("order_total", { precision: 10, scale: 2 }).notNull(),
+  usedAt: timestamp("used_at").notNull().default(sql`now()`),
+});
+
+// Customer Lifetime Value tracking
+export const customerMetrics = pgTable("customer_metrics", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique().references(() => users.id),
+  
+  // Lifetime value metrics
+  totalOrders: integer("total_orders").notNull().default(0),
+  totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).notNull().default("0"),
+  averageOrderValue: decimal("average_order_value", { precision: 10, scale: 2 }).default("0"),
+  
+  // Acquisition info
+  firstOrderDate: timestamp("first_order_date"),
+  lastOrderDate: timestamp("last_order_date"),
+  acquisitionSource: text("acquisition_source"), // utm_source from first order
+  acquisitionCampaign: text("acquisition_campaign"), // utm_campaign from first order
+  acquisitionCost: decimal("acquisition_cost", { precision: 10, scale: 2 }).default("0"),
+  
+  // Calculated CLV
+  estimatedLifetimeValue: decimal("estimated_lifetime_value", { precision: 10, scale: 2 }).default("0"),
+  profitMargin: decimal("profit_margin", { precision: 10, scale: 2 }).default("0"),
+  
+  // Engagement metrics
+  emailOpens: integer("email_opens").default(0),
+  emailClicks: integer("email_clicks").default(0),
+  lastEmailInteraction: timestamp("last_email_interaction"),
+  
+  // Segmentation
+  segment: text("segment").default("new"), // new, active, at_risk, churned, vip
+  
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Post-purchase survey responses
+export const postPurchaseSurveys = pgTable("post_purchase_surveys", {
+  id: serial("id").primaryKey(),
+  orderId: varchar("order_id").notNull().references(() => orders.id),
+  userId: integer("user_id").references(() => users.id),
+  
+  // "How did you hear about us?" question
+  heardAboutUs: text("heard_about_us"), // google_ad, facebook, friend, influencer, other
+  heardAboutUsOther: text("heard_about_us_other"), // If "other" selected
+  
+  // Additional feedback
+  satisfactionRating: integer("satisfaction_rating"), // 1-5
+  wouldRecommend: boolean("would_recommend"),
+  feedback: text("feedback"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Marketing campaign cost tracking (for ROAS calculation)
+export const marketingCampaigns = pgTable("marketing_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  platform: text("platform").notNull(), // google_ads, facebook_ads, instagram, email
+  
+  // Campaign identifiers (to match with UTM)
+  utmCampaign: text("utm_campaign"),
+  utmSource: text("utm_source"),
+  
+  // Cost tracking
+  totalSpend: decimal("total_spend", { precision: 10, scale: 2 }).notNull().default("0"),
+  dailyBudget: decimal("daily_budget", { precision: 10, scale: 2 }),
+  
+  // Metrics (calculated from attribution)
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  revenue: decimal("revenue", { precision: 10, scale: 2 }).default("0"),
+  
+  // Calculated ROAS
+  roas: decimal("roas", { precision: 10, scale: 2 }).default("0"), // Return on Ad Spend
+  cpa: decimal("cpa", { precision: 10, scale: 2 }).default("0"), // Cost per Acquisition
+  
+  // Status
+  status: text("status").default("active"), // active, paused, ended
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Insert schemas
+export const insertMarketingSessionSchema = createInsertSchema(marketingSessions).omit({
+  id: true,
+  firstSeen: true,
+  lastSeen: true,
+});
+
+export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({
+  id: true,
+  usedCount: true,
+  totalRevenue: true,
+  totalDiscount: true,
+  createdAt: true,
+});
+
+export const insertPromoCodeUsageSchema = createInsertSchema(promoCodeUsages).omit({
+  id: true,
+  usedAt: true,
+});
+
+export const insertCustomerMetricsSchema = createInsertSchema(customerMetrics).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertPostPurchaseSurveySchema = createInsertSchema(postPurchaseSurveys).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
+  id: true,
+  impressions: true,
+  clicks: true,
+  conversions: true,
+  revenue: true,
+  roas: true,
+  cpa: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types
+export type MarketingSession = typeof marketingSessions.$inferSelect;
+export type InsertMarketingSession = z.infer<typeof insertMarketingSessionSchema>;
+export type PromoCode = typeof promoCodes.$inferSelect;
+export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+export type PromoCodeUsage = typeof promoCodeUsages.$inferSelect;
+export type InsertPromoCodeUsage = z.infer<typeof insertPromoCodeUsageSchema>;
+export type CustomerMetrics = typeof customerMetrics.$inferSelect;
+export type InsertCustomerMetrics = z.infer<typeof insertCustomerMetricsSchema>;
+export type PostPurchaseSurvey = typeof postPurchaseSurveys.$inferSelect;
+export type InsertPostPurchaseSurvey = z.infer<typeof insertPostPurchaseSurveySchema>;
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
