@@ -525,6 +525,326 @@ export const blogPosts = pgTable("blog_posts", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// ============================================
+// SHOPIFY-LEVEL E-COMMERCE FEATURES
+// ============================================
+
+// Persistent Carts - Database-backed cart storage
+export const carts = pgTable("carts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: integer("user_id").references(() => users.id),
+  sessionToken: text("session_token"), // For guest carts
+  notes: text("notes"), // Customer notes for the order
+  discountCodeId: integer("discount_code_id").references(() => discountCodes.id),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0"),
+  status: text("status").notNull().default("active"), // active, abandoned, converted
+  convertedOrderId: varchar("converted_order_id").references(() => orders.id),
+  lastActivityAt: timestamp("last_activity_at").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const cartItems = pgTable("cart_items", {
+  id: serial("id").primaryKey(),
+  cartId: varchar("cart_id").notNull().references(() => carts.id, { onDelete: "cascade" }),
+  productId: varchar("product_id").notNull().references(() => products.id),
+  variantId: varchar("variant_id"), // For variant support
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  addedAt: timestamp("added_at").notNull().default(sql`now()`),
+});
+
+export const savedForLater = pgTable("saved_for_later", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  productId: varchar("product_id").notNull().references(() => products.id),
+  variantId: varchar("variant_id"),
+  savedAt: timestamp("saved_at").notNull().default(sql`now()`),
+});
+
+// Product Variants - Size, Color, Options
+export const productOptions = pgTable("product_options", {
+  id: serial("id").primaryKey(),
+  productId: varchar("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // "Size", "Color", "Flavor"
+  position: integer("position").notNull().default(1), // Display order
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const productOptionValues = pgTable("product_option_values", {
+  id: serial("id").primaryKey(),
+  optionId: integer("option_id").notNull().references(() => productOptions.id, { onDelete: "cascade" }),
+  value: text("value").notNull(), // "Small", "Red", "Berry"
+  position: integer("position").notNull().default(1),
+});
+
+export const productVariants = pgTable("product_variants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  sku: text("sku"), // Unique SKU per variant
+  title: text("title").notNull(), // "Small / Red"
+  option1: text("option1"), // First option value
+  option2: text("option2"), // Second option value
+  option3: text("option3"), // Third option value
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }), // Original/MSRP
+  costPerItem: decimal("cost_per_item", { precision: 10, scale: 2 }), // Your cost
+  stock: integer("stock").notNull().default(0),
+  lowStockThreshold: integer("low_stock_threshold").default(5),
+  weight: decimal("weight", { precision: 8, scale: 2 }), // In ounces
+  barcode: text("barcode"), // UPC/ISBN
+  imageUrl: text("image_url"),
+  isDefault: boolean("is_default").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Inventory Tracking
+export const inventoryAlerts = pgTable("inventory_alerts", {
+  id: serial("id").primaryKey(),
+  productId: varchar("product_id").notNull().references(() => products.id),
+  variantId: varchar("variant_id").references(() => productVariants.id),
+  alertType: text("alert_type").notNull(), // "low_stock", "out_of_stock", "restock"
+  currentStock: integer("current_stock").notNull(),
+  threshold: integer("threshold"),
+  isResolved: boolean("is_resolved").notNull().default(false),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Order Editing & Revisions
+export const orderRevisions = pgTable("order_revisions", {
+  id: serial("id").primaryKey(),
+  orderId: varchar("order_id").notNull().references(() => orders.id),
+  revisedBy: integer("revised_by").references(() => users.id), // Admin who made change
+  revisionType: text("revision_type").notNull(), // "items", "shipping", "discount", "cancel"
+  previousState: text("previous_state").notNull(), // JSON of previous values
+  newState: text("new_state").notNull(), // JSON of new values
+  reason: text("reason"), // Why the change was made
+  customerNotified: boolean("customer_notified").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Order Timeline - Full audit trail
+export const orderTimeline = pgTable("order_timeline", {
+  id: serial("id").primaryKey(),
+  orderId: varchar("order_id").notNull().references(() => orders.id),
+  eventType: text("event_type").notNull(), // "created", "paid", "shipped", "delivered", "edited", "refunded"
+  title: text("title").notNull(),
+  description: text("description"),
+  userId: integer("user_id").references(() => users.id),
+  metadata: text("metadata"), // JSON additional data
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Draft Orders - Admin-created orders
+export const draftOrders = pgTable("draft_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  customerEmail: text("customer_email"),
+  customerName: text("customer_name"),
+  customerPhone: text("customer_phone"),
+  shippingAddressLine1: text("shipping_address_line1"),
+  shippingAddressLine2: text("shipping_address_line2"),
+  shippingCity: text("shipping_city"),
+  shippingState: text("shipping_state"),
+  shippingZip: text("shipping_zip"),
+  shippingCountry: text("shipping_country").default("United States"),
+  notes: text("notes"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0"),
+  status: text("status").notNull().default("open"), // open, invoice_sent, completed
+  invoiceSentAt: timestamp("invoice_sent_at"),
+  convertedOrderId: varchar("converted_order_id").references(() => orders.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const draftOrderItems = pgTable("draft_order_items", {
+  id: serial("id").primaryKey(),
+  draftOrderId: varchar("draft_order_id").notNull().references(() => draftOrders.id, { onDelete: "cascade" }),
+  productId: varchar("product_id").references(() => products.id),
+  variantId: varchar("variant_id").references(() => productVariants.id),
+  customTitle: text("custom_title"), // For custom line items
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+});
+
+// Gift Cards & Store Credit
+export const giftCards = pgTable("gift_cards", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  initialBalance: decimal("initial_balance", { precision: 10, scale: 2 }).notNull(),
+  currentBalance: decimal("current_balance", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("USD"),
+  purchasedByUserId: integer("purchased_by_user_id").references(() => users.id),
+  purchaseOrderId: varchar("purchase_order_id").references(() => orders.id),
+  recipientEmail: text("recipient_email"),
+  recipientName: text("recipient_name"),
+  personalMessage: text("personal_message"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const giftCardTransactions = pgTable("gift_card_transactions", {
+  id: serial("id").primaryKey(),
+  giftCardId: integer("gift_card_id").notNull().references(() => giftCards.id),
+  orderId: varchar("order_id").references(() => orders.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  type: text("type").notNull(), // "purchase", "redemption", "refund", "adjustment"
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Refunds & Returns
+export const returns = pgTable("returns", {
+  id: serial("id").primaryKey(),
+  orderId: varchar("order_id").notNull().references(() => orders.id),
+  returnNumber: text("return_number").notNull().unique(), // RET-12345
+  reason: text("reason").notNull(),
+  customerNotes: text("customer_notes"),
+  adminNotes: text("admin_notes"),
+  status: text("status").notNull().default("requested"), // requested, approved, received, refunded, declined
+  refundMethod: text("refund_method"), // "original_payment", "store_credit", "gift_card"
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  restockItems: boolean("restock_items").notNull().default(true),
+  trackingNumber: text("tracking_number"), // Return shipping tracking
+  processedBy: integer("processed_by").references(() => users.id),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const returnItems = pgTable("return_items", {
+  id: serial("id").primaryKey(),
+  returnId: integer("return_id").notNull().references(() => returns.id, { onDelete: "cascade" }),
+  orderItemId: varchar("order_item_id").notNull().references(() => orderItems.id),
+  quantity: integer("quantity").notNull(),
+  reason: text("reason"),
+  condition: text("condition"), // "unopened", "opened", "damaged"
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+});
+
+// Insert schemas for new tables
+export const insertCartSchema = createInsertSchema(carts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastActivityAt: true,
+});
+
+export const insertCartItemSchema = createInsertSchema(cartItems).omit({
+  id: true,
+  addedAt: true,
+});
+
+export const insertSavedForLaterSchema = createInsertSchema(savedForLater).omit({
+  id: true,
+  savedAt: true,
+});
+
+export const insertProductOptionSchema = createInsertSchema(productOptions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProductOptionValueSchema = createInsertSchema(productOptionValues).omit({
+  id: true,
+});
+
+export const insertProductVariantSchema = createInsertSchema(productVariants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInventoryAlertSchema = createInsertSchema(inventoryAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOrderRevisionSchema = createInsertSchema(orderRevisions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOrderTimelineSchema = createInsertSchema(orderTimeline).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDraftOrderSchema = createInsertSchema(draftOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDraftOrderItemSchema = createInsertSchema(draftOrderItems).omit({
+  id: true,
+});
+
+export const insertGiftCardSchema = createInsertSchema(giftCards).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertGiftCardTransactionSchema = createInsertSchema(giftCardTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReturnSchema = createInsertSchema(returns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReturnItemSchema = createInsertSchema(returnItems).omit({
+  id: true,
+});
+
+// Types for new tables
+export type Cart = typeof carts.$inferSelect;
+export type InsertCart = z.infer<typeof insertCartSchema>;
+export type CartItemDB = typeof cartItems.$inferSelect;
+export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
+export type SavedForLater = typeof savedForLater.$inferSelect;
+export type InsertSavedForLater = z.infer<typeof insertSavedForLaterSchema>;
+export type ProductOption = typeof productOptions.$inferSelect;
+export type InsertProductOption = z.infer<typeof insertProductOptionSchema>;
+export type ProductOptionValue = typeof productOptionValues.$inferSelect;
+export type InsertProductOptionValue = z.infer<typeof insertProductOptionValueSchema>;
+export type ProductVariant = typeof productVariants.$inferSelect;
+export type InsertProductVariant = z.infer<typeof insertProductVariantSchema>;
+export type InventoryAlert = typeof inventoryAlerts.$inferSelect;
+export type InsertInventoryAlert = z.infer<typeof insertInventoryAlertSchema>;
+export type OrderRevision = typeof orderRevisions.$inferSelect;
+export type InsertOrderRevision = z.infer<typeof insertOrderRevisionSchema>;
+export type OrderTimelineEvent = typeof orderTimeline.$inferSelect;
+export type InsertOrderTimelineEvent = z.infer<typeof insertOrderTimelineSchema>;
+export type DraftOrder = typeof draftOrders.$inferSelect;
+export type InsertDraftOrder = z.infer<typeof insertDraftOrderSchema>;
+export type DraftOrderItem = typeof draftOrderItems.$inferSelect;
+export type InsertDraftOrderItem = z.infer<typeof insertDraftOrderItemSchema>;
+export type GiftCard = typeof giftCards.$inferSelect;
+export type InsertGiftCard = z.infer<typeof insertGiftCardSchema>;
+export type GiftCardTransaction = typeof giftCardTransactions.$inferSelect;
+export type InsertGiftCardTransaction = z.infer<typeof insertGiftCardTransactionSchema>;
+export type Return = typeof returns.$inferSelect;
+export type InsertReturn = z.infer<typeof insertReturnSchema>;
+export type ReturnItem = typeof returnItems.$inferSelect;
+export type InsertReturnItem = z.infer<typeof insertReturnItemSchema>;
+
 export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
   id: true,
   views: true,
