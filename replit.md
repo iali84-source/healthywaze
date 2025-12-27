@@ -64,6 +64,18 @@ The system supports a full CRUD API for products, orders, customer addresses, an
 
 **Abandoned Cart Recovery** - Standalone cart capture system that stores: cart items (JSON), cart total, unique recovery code, and reminder send timestamps. Status progression: abandoned → recovered/converted. Links to completed orders when customer recovers purchase. Integration points ready for 3-email recovery sequence automation.
 
+### Marketing Attribution & ROI System (Dec 27, 2025)
+Complete marketing analytics infrastructure for optimizing ad spend:
+- **UTM Tracking:** Automatic capture of Google Ads (gclid), Facebook (fbclid), and all UTM parameters on landing
+- **Marketing Sessions:** Database table tracks visitor journeys from first click to conversion with device/browser info
+- **Promo Code System:** Create discount codes with percentage/fixed discounts, usage limits, campaign tracking, and revenue attribution
+- **Campaign Management:** Track ad campaigns by platform (Google Ads, Facebook, Instagram, email, influencer) with spend, revenue, ROAS, and CPA
+- **Customer Segments:** Automatic segmentation (new, active, at_risk, churned, vip) based on purchase history and lifetime value
+- **Post-Purchase Surveys:** "How did you hear about us?" responses for attribution validation
+- **Admin Dashboard:** /admin/marketing page with ROI metrics, attribution charts, promo code tracking, and campaign performance
+
+Database tables: marketing_sessions, promo_codes, promo_code_usages, customer_metrics, post_purchase_surveys, marketing_campaigns
+
 ### Recent Changes (Dec 10, 2025)
 **Blog System for Newsletter Archives**
 - New `blog_posts` table stores articles as plain text/HTML (not PDFs)
