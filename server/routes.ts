@@ -3015,6 +3015,213 @@ Format as JSON with keys: subject, content (HTML formatted)`,
     }
   });
 
+  // ================== MARKETING ATTRIBUTION & ROI ==================
+
+  // Track marketing session (UTM parameters)
+  app.post("/api/marketing/session", async (req, res) => {
+    try {
+      const {
+        visitorId,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        utmTerm,
+        utmContent,
+        gclid,
+        gbraid,
+        wbraid,
+        fbclid,
+        landingPage,
+        referrer,
+        deviceType,
+        browser,
+      } = req.body;
+
+      if (!visitorId) {
+        return res.status(400).json({ error: "visitorId is required" });
+      }
+
+      // Check if session already exists
+      const existing = await storage.getMarketingSession(visitorId);
+      if (existing) {
+        // Update last seen
+        const updated = await storage.updateMarketingSession(existing.id, {});
+        return res.json(updated);
+      }
+
+      // Create new session
+      const session = await storage.createMarketingSession({
+        visitorId,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        utmTerm,
+        utmContent,
+        gclid,
+        gbraid,
+        wbraid,
+        fbclid,
+        landingPage,
+        referrer,
+        deviceType,
+        browser,
+      });
+
+      res.status(201).json(session);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get marketing analytics (Admin)
+  app.get("/api/admin/marketing/analytics", requireAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getMarketingAnalytics();
+      res.json(analytics);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get marketing ROI dashboard (Admin)
+  app.get("/api/admin/marketing/roi", requireAdmin, async (req, res) => {
+    try {
+      const dashboard = await storage.getMarketingROIDashboard();
+      res.json(dashboard);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== PROMO CODES ==================
+
+  // Get all promo codes (Admin)
+  app.get("/api/admin/promo-codes", requireAdmin, async (req, res) => {
+    try {
+      const codes = await storage.getPromoCodes();
+      res.json(codes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create promo code (Admin)
+  app.post("/api/admin/promo-codes", requireAdmin, async (req, res) => {
+    try {
+      const code = await storage.createPromoCode(req.body);
+      res.status(201).json(code);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update promo code (Admin)
+  app.patch("/api/admin/promo-codes/:id", requireAdmin, async (req, res) => {
+    try {
+      const code = await storage.updatePromoCode(req.params.id, req.body);
+      if (!code) {
+        return res.status(404).json({ error: "Promo code not found" });
+      }
+      res.json(code);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Validate promo code (Public - for checkout)
+  app.post("/api/promo-codes/validate", async (req, res) => {
+    try {
+      const { code, orderTotal } = req.body;
+      const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
+
+      const result = await storage.applyPromoCode(code, orderTotal, userId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== MARKETING CAMPAIGNS ==================
+
+  // Get all marketing campaigns (Admin)
+  app.get("/api/admin/campaigns", requireAdmin, async (req, res) => {
+    try {
+      const campaigns = await storage.getMarketingCampaigns();
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create marketing campaign (Admin)
+  app.post("/api/admin/campaigns", requireAdmin, async (req, res) => {
+    try {
+      const campaign = await storage.createMarketingCampaign(req.body);
+      res.status(201).json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update marketing campaign (Admin)
+  app.patch("/api/admin/campaigns/:id", requireAdmin, async (req, res) => {
+    try {
+      const campaign = await storage.updateMarketingCampaign(req.params.id, req.body);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== CUSTOMER METRICS ==================
+
+  // Get customer segment stats (Admin)
+  app.get("/api/admin/customer-segments", requireAdmin, async (req, res) => {
+    try {
+      const segments = await storage.getCustomerSegmentStats();
+      res.json(segments);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== POST-PURCHASE SURVEYS ==================
+
+  // Submit post-purchase survey (Public)
+  app.post("/api/surveys/post-purchase", async (req, res) => {
+    try {
+      const { orderId, heardAboutUs, heardAboutUsOther, satisfactionRating, wouldRecommend, feedback } = req.body;
+      const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
+
+      const survey = await storage.createPostPurchaseSurvey({
+        orderId,
+        userId,
+        heardAboutUs,
+        heardAboutUsOther,
+        satisfactionRating,
+        wouldRecommend,
+        feedback,
+      });
+
+      res.status(201).json(survey);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get survey statistics (Admin)
+  app.get("/api/admin/surveys/stats", requireAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getSurveyStats();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

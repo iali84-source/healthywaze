@@ -8,7 +8,7 @@ import {
   Settings,
   TrendingUp,
 } from "lucide-react";
-import { Zap, Layers, BookMarked, Wrench, Mail, FileText } from "lucide-react"
+import { Zap, Layers, BookMarked, Wrench, Mail, FileText, Target } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -78,6 +78,11 @@ const adminItems = [
     title: "Blog Manager",
     url: "/admin/blog",
     icon: FileText,
+  },
+  {
+    title: "Marketing ROI",
+    url: "/admin/marketing",
+    icon: Target,
   },
   {
     title: "Site Settings",
