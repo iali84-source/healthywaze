@@ -2504,6 +2504,501 @@ Format as JSON with keys: subject, content (HTML formatted)`,
     }
   });
 
+  // ============================================
+  // PERSISTENT CART API (Shopify-level features)
+  // ============================================
+
+  // Get or create cart for current user/session
+  app.get("/api/cart", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const sessionToken = req.headers["x-cart-session"] as string;
+
+      let cart;
+      
+      if (userId) {
+        cart = await storage.getCartByUserId(userId);
+      } else if (sessionToken) {
+        cart = await storage.getCartBySessionToken(sessionToken);
+      }
+
+      if (!cart) {
+        // Create new cart
+        const newSessionToken = sessionToken || crypto.randomUUID();
+        cart = await storage.createCart({
+          userId: userId || null,
+          sessionToken: userId ? null : newSessionToken,
+          status: "active",
+        });
+      }
+
+      const items = await storage.getCartItems(cart.id);
+      
+      // Enrich cart items with product details
+      const enrichedItems = await Promise.all(items.map(async (item) => {
+        const product = await storage.getProduct(item.productId);
+        return {
+          ...item,
+          product: product || null,
+        };
+      }));
+
+      res.json({ cart, items: enrichedItems });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add item to cart
+  app.post("/api/cart/items", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const sessionToken = req.headers["x-cart-session"] as string;
+      const { productId, variantId, quantity = 1 } = req.body;
+
+      if (!productId) {
+        return res.status(400).json({ error: "Product ID is required" });
+      }
+
+      // Get product for price
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Check stock
+      if (product.stock < quantity) {
+        return res.status(400).json({ error: "Insufficient stock" });
+      }
+
+      // Get or create cart
+      let cart;
+      if (userId) {
+        cart = await storage.getCartByUserId(userId);
+      } else if (sessionToken) {
+        cart = await storage.getCartBySessionToken(sessionToken);
+      }
+
+      if (!cart) {
+        const newSessionToken = sessionToken || crypto.randomUUID();
+        cart = await storage.createCart({
+          userId: userId || null,
+          sessionToken: userId ? null : newSessionToken,
+          status: "active",
+        });
+      }
+
+      const price = product.price;
+      const totalPrice = String(parseFloat(price) * quantity);
+
+      const item = await storage.addCartItem({
+        cartId: cart.id,
+        productId,
+        variantId: variantId || null,
+        quantity,
+        unitPrice: price,
+        totalPrice,
+      });
+
+      const updatedCart = await storage.getCart(cart.id);
+      const items = await storage.getCartItems(cart.id);
+
+      res.json({ cart: updatedCart, item, itemCount: items.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update cart item quantity
+  app.patch("/api/cart/items/:itemId", async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.itemId);
+      const { quantity } = req.body;
+
+      if (quantity === undefined || quantity < 0) {
+        return res.status(400).json({ error: "Valid quantity is required" });
+      }
+
+      if (quantity === 0) {
+        await storage.removeCartItem(itemId);
+        return res.json({ success: true, removed: true });
+      }
+
+      const updatedItem = await storage.updateCartItem(itemId, { quantity });
+      if (!updatedItem) {
+        return res.status(404).json({ error: "Cart item not found" });
+      }
+
+      res.json({ item: updatedItem });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Remove item from cart
+  app.delete("/api/cart/items/:itemId", async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.itemId);
+      const success = await storage.removeCartItem(itemId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Cart item not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Clear entire cart
+  app.delete("/api/cart", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const sessionToken = req.headers["x-cart-session"] as string;
+
+      let cart;
+      if (userId) {
+        cart = await storage.getCartByUserId(userId);
+      } else if (sessionToken) {
+        cart = await storage.getCartBySessionToken(sessionToken);
+      }
+
+      if (!cart) {
+        return res.status(404).json({ error: "Cart not found" });
+      }
+
+      await storage.clearCart(cart.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update cart notes
+  app.patch("/api/cart/notes", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const sessionToken = req.headers["x-cart-session"] as string;
+      const { notes } = req.body;
+
+      let cart;
+      if (userId) {
+        cart = await storage.getCartByUserId(userId);
+      } else if (sessionToken) {
+        cart = await storage.getCartBySessionToken(sessionToken);
+      }
+
+      if (!cart) {
+        return res.status(404).json({ error: "Cart not found" });
+      }
+
+      const updatedCart = await storage.updateCart(cart.id, { notes });
+      res.json({ cart: updatedCart });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Merge guest cart to user on login
+  app.post("/api/cart/merge", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const { sessionToken } = req.body;
+
+      if (!sessionToken) {
+        return res.status(400).json({ error: "Session token is required" });
+      }
+
+      const mergedCart = await storage.mergeGuestCartToUser(sessionToken, userId);
+      
+      if (!mergedCart) {
+        // No guest cart to merge, get or create user cart
+        let cart = await storage.getCartByUserId(userId);
+        if (!cart) {
+          cart = await storage.createCart({ userId, status: "active" });
+        }
+        const items = await storage.getCartItems(cart.id);
+        return res.json({ cart, items });
+      }
+
+      const items = await storage.getCartItems(mergedCart.id);
+      res.json({ cart: mergedCart, items });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Save item for later (requires auth)
+  app.post("/api/cart/save-for-later", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const { productId, variantId, cartItemId } = req.body;
+
+      if (!productId) {
+        return res.status(400).json({ error: "Product ID is required" });
+      }
+
+      // If moving from cart, remove from cart first
+      if (cartItemId) {
+        await storage.removeCartItem(cartItemId);
+      }
+
+      const saved = await storage.saveForLater({
+        userId,
+        productId,
+        variantId: variantId || null,
+      });
+
+      res.json({ saved });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get saved for later items
+  app.get("/api/cart/saved", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const savedItems = await storage.getSavedForLater(userId);
+
+      // Enrich with product details
+      const enriched = await Promise.all(savedItems.map(async (item) => {
+        const product = await storage.getProduct(item.productId);
+        return { ...item, product };
+      }));
+
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Move saved item back to cart
+  app.post("/api/cart/move-to-cart/:savedId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const savedId = parseInt(req.params.savedId);
+
+      let cart = await storage.getCartByUserId(userId);
+      if (!cart) {
+        cart = await storage.createCart({ userId, status: "active" });
+      }
+
+      const cartItem = await storage.moveToCart(savedId, cart.id);
+      
+      if (!cartItem) {
+        return res.status(404).json({ error: "Saved item not found" });
+      }
+
+      res.json({ item: cartItem });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Apply discount code to cart
+  app.post("/api/cart/apply-discount", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const sessionToken = req.headers["x-cart-session"] as string;
+      const { code } = req.body;
+
+      if (!code) {
+        return res.status(400).json({ error: "Discount code is required" });
+      }
+
+      let cart;
+      if (userId) {
+        cart = await storage.getCartByUserId(userId);
+      } else if (sessionToken) {
+        cart = await storage.getCartBySessionToken(sessionToken);
+      }
+
+      if (!cart) {
+        return res.status(404).json({ error: "Cart not found" });
+      }
+
+      const subtotal = parseFloat(String(cart.subtotal));
+      const validation = await storage.validateDiscountCode(code, subtotal);
+
+      if (!validation.valid) {
+        return res.status(400).json({ error: "Invalid or expired discount code" });
+      }
+
+      const updatedCart = await storage.updateCart(cart.id, {
+        discountAmount: String(validation.discount),
+        total: String(Math.max(0, subtotal - validation.discount)),
+      });
+
+      res.json({ cart: updatedCart, discount: validation.discount });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================
+  // PRODUCT VARIANTS API
+  // ============================================
+
+  // Get variants for a product
+  app.get("/api/products/:productId/variants", async (req, res) => {
+    try {
+      const variants = await storage.getProductVariants(req.params.productId);
+      res.json(variants);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create product variant (Admin)
+  app.post("/api/products/:productId/variants", requireAdmin, async (req, res) => {
+    try {
+      const variant = await storage.createProductVariant({
+        ...req.body,
+        productId: req.params.productId,
+      });
+      res.json(variant);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update product variant (Admin)
+  app.patch("/api/variants/:variantId", requireAdmin, async (req, res) => {
+    try {
+      const variant = await storage.updateProductVariant(req.params.variantId, req.body);
+      if (!variant) {
+        return res.status(404).json({ error: "Variant not found" });
+      }
+      res.json(variant);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete product variant (Admin)
+  app.delete("/api/variants/:variantId", requireAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteProductVariant(req.params.variantId);
+      if (!success) {
+        return res.status(404).json({ error: "Variant not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================
+  // ORDER EDITING API (Admin)
+  // ============================================
+
+  // Get order timeline/history
+  app.get("/api/orders/:orderId/timeline", requireAdmin, async (req, res) => {
+    try {
+      const timeline = await storage.getOrderTimeline(req.params.orderId);
+      res.json(timeline);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get order revisions
+  app.get("/api/orders/:orderId/revisions", requireAdmin, async (req, res) => {
+    try {
+      const revisions = await storage.getOrderRevisions(req.params.orderId);
+      res.json(revisions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Edit order (Admin) - with revision tracking
+  app.patch("/api/orders/:orderId/edit", requireAdmin, async (req, res) => {
+    try {
+      const orderId = req.params.orderId;
+      const userId = (req as any).user.id;
+      const { updates, reason } = req.body;
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Create revision record
+      await storage.createOrderRevision({
+        orderId,
+        revisedBy: userId,
+        revisionType: "edit",
+        previousState: JSON.stringify(order),
+        newState: JSON.stringify(updates),
+        reason: reason || "Order edited by admin",
+      });
+
+      // Add timeline event
+      await storage.addOrderTimelineEvent({
+        orderId,
+        eventType: "edited",
+        title: "Order Edited",
+        description: reason || "Order details were modified",
+        userId,
+        metadata: JSON.stringify(updates),
+      });
+
+      // Update the order
+      const updatedOrder = await storage.updateOrder(orderId, updates);
+
+      res.json({ order: updatedOrder });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update order shipping address (Admin)
+  app.patch("/api/orders/:orderId/shipping", requireAdmin, async (req, res) => {
+    try {
+      const orderId = req.params.orderId;
+      const userId = (req as any).user.id;
+      const shippingUpdates = req.body;
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Create revision for shipping change
+      await storage.createOrderRevision({
+        orderId,
+        revisedBy: userId,
+        revisionType: "shipping",
+        previousState: JSON.stringify({
+          shippingAddressLine1: order.shippingAddressLine1,
+          shippingAddressLine2: order.shippingAddressLine2,
+          shippingCity: order.shippingCity,
+          shippingState: order.shippingState,
+          shippingZip: order.shippingZip,
+        }),
+        newState: JSON.stringify(shippingUpdates),
+        reason: "Shipping address updated",
+      });
+
+      // Add timeline event
+      await storage.addOrderTimelineEvent({
+        orderId,
+        eventType: "shipping_updated",
+        title: "Shipping Address Updated",
+        description: "Shipping address was modified by admin",
+        userId,
+      });
+
+      const updatedOrder = await storage.updateOrder(orderId, shippingUpdates);
+      res.json({ order: updatedOrder });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
