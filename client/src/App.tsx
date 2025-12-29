@@ -34,6 +34,8 @@ import MarketingROI from "@/pages/admin/MarketingROI";
 import AuthPage from "@/pages/AuthPage";
 import LogoShowcase from "@/pages/LogoShowcase";
 import Blog from "@/pages/Blog";
+import Legal from "@/pages/Legal";
+import CookieConsent from "@/components/CookieConsent";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics";
 import { useAnalytics } from "./hooks/use-analytics";
@@ -158,6 +160,10 @@ function App() {
               {(params) => <Blog params={params} />}
             </Route>
             
+            {/* Legal pages */}
+            <Route path="/legal" component={Legal} />
+            <Route path="/legal/:section" component={Legal} />
+            
             {/* Storefront routes */}
             <Route path="/" component={Home} />
             <Route path="/about" component={AboutUs} />
@@ -174,6 +180,7 @@ function App() {
             </Switch>
             <Toaster />
             <AiChatbot />
+            <CookieConsent />
             <MarketingTracker />
           </TooltipProvider>
         </CartProvider>
