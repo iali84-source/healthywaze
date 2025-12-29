@@ -835,6 +835,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the order creation if email fails
       }
       
+      // LOYALTY POINTS: Award points for authenticated users (1 point per $1 spent)
+      if (req.isAuthenticated() && req.user) {
+        try {
+          const pointsToAward = Math.floor(calculatedTotal);
+          if (pointsToAward > 0) {
+            await storage.addLoyaltyPoints(
+              req.user.id,
+              pointsToAward,
+              "purchase",
+              `Earned ${pointsToAward} points for order #${order.id}`
+            );
+            console.log(`Awarded ${pointsToAward} loyalty points to user ${req.user.id} for order ${order.id}`);
+          }
+        } catch (loyaltyError: any) {
+          console.error("Failed to award loyalty points:", loyaltyError.message);
+          // Don't fail the order creation if loyalty points fail
+        }
+      }
+      
       // Return order with calculated total and validated items
       res.status(201).json({
         ...order,
