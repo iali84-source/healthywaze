@@ -8,6 +8,7 @@ import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { setupAuth, requireAuth, requireAdmin } from "./auth";
+import { sendOrderConfirmation, sendWelcomeEmail } from "./email";
 
 // Reference for Stripe integration from blueprint:javascript_stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -851,6 +852,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (loyaltyError: any) {
           console.error("Failed to award loyalty points:", loyaltyError.message);
           // Don't fail the order creation if loyalty points fail
+        }
+      }
+      
+      // SEND ORDER CONFIRMATION EMAIL
+      if (order.customerEmail) {
+        try {
+          await sendOrderConfirmation(order.customerEmail, order, orderItemsDetails);
+        } catch (emailError: any) {
+          console.error("Failed to send order confirmation email:", emailError.message);
+          // Don't fail the order creation if email fails
         }
       }
       
