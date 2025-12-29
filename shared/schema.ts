@@ -1059,6 +1059,61 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Referral Program
+export const referrals = pgTable("referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerId: integer("referrer_id").notNull().references(() => users.id), // User who referred
+  referredEmail: text("referred_email").notNull(), // Email of person referred
+  referredUserId: integer("referred_user_id").references(() => users.id), // User who signed up (once registered)
+  
+  // Referral tracking
+  referralCode: varchar("referral_code", { length: 20 }).notNull(), // The code that was used
+  status: text("status").notNull().default("pending"), // pending, registered, converted (first purchase)
+  
+  // Rewards
+  referrerRewardPoints: integer("referrer_reward_points").default(0), // Points awarded to referrer
+  referredRewardPoints: integer("referred_reward_points").default(0), // Points/discount for new customer
+  
+  // Conversion tracking
+  convertedOrderId: varchar("converted_order_id").references(() => orders.id), // First order by referred user
+  convertedAt: timestamp("converted_at"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const referralCodes = pgTable("referral_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique().references(() => users.id),
+  code: varchar("code", { length: 20 }).notNull().unique(),
+  timesUsed: integer("times_used").notNull().default(0),
+  totalPointsEarned: integer("total_points_earned").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({
+  id: true,
+  referredUserId: true,
+  status: true,
+  referrerRewardPoints: true,
+  referredRewardPoints: true,
+  convertedOrderId: true,
+  convertedAt: true,
+  createdAt: true,
+});
+
+export const insertReferralCodeSchema = createInsertSchema(referralCodes).omit({
+  id: true,
+  timesUsed: true,
+  totalPointsEarned: true,
+  createdAt: true,
+});
+
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
+export type ReferralCode = typeof referralCodes.$inferSelect;
+export type InsertReferralCode = z.infer<typeof insertReferralCodeSchema>;
+
 // Insert schemas
 export const insertMarketingSessionSchema = createInsertSchema(marketingSessions).omit({
   id: true,
