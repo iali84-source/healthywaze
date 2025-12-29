@@ -1890,6 +1890,110 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // REFERRAL PROGRAM ENDPOINTS
+  
+  // Get or create user's referral code
+  app.get("/api/referral/code", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      let referralCode = await storage.getReferralCode(user.id);
+      
+      if (!referralCode) {
+        // Generate unique referral code
+        const code = `HW${user.id}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        referralCode = await storage.createReferralCode({
+          userId: user.id,
+          code,
+          isActive: true,
+        });
+      }
+      
+      res.json(referralCode);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get user's referrals
+  app.get("/api/referral/list", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const referralsList = await storage.getReferralsByReferrer(user.id);
+      res.json(referralsList);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Track a referral signup
+  app.post("/api/referral/track", async (req, res) => {
+    try {
+      const { code, email } = req.body;
+      
+      if (!code || !email) {
+        return res.status(400).json({ error: "Code and email are required" });
+      }
+      
+      const referralCode = await storage.getReferralCodeByCode(code);
+      if (!referralCode || !referralCode.isActive) {
+        return res.status(404).json({ error: "Invalid referral code" });
+      }
+      
+      // Create referral record
+      const referral = await storage.createReferral({
+        referrerId: referralCode.userId,
+        referredEmail: email,
+        referralCode: code,
+      });
+      
+      res.json({ success: true, referral });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Complete referral (award points when referred user makes first purchase)
+  app.post("/api/referral/complete", requireAuth, async (req, res) => {
+    try {
+      const { referralId, orderId } = req.body;
+      const user = req.user as any;
+      
+      const referrerPoints = 500; // Points for referrer
+      const referredPoints = 200; // Points for new customer
+      
+      // Update referral status with reward points
+      const referral = await storage.updateReferralStatus(referralId, "converted", orderId, referrerPoints, referredPoints);
+      
+      if (referral) {
+        // Award points to referrer
+        await storage.addLoyaltyPoints(
+          referral.referrerId,
+          referrerPoints,
+          "referral",
+          `Referral bonus: ${referral.referredEmail} made first purchase`
+        );
+        
+        // Award points to the referred user (the one making the purchase)
+        if (user && user.id) {
+          await storage.addLoyaltyPoints(
+            user.id,
+            referredPoints,
+            "referral_bonus",
+            `Welcome bonus: Thanks for joining via referral!`
+          );
+        }
+        
+        // Track referral code usage
+        await storage.incrementReferralCodeUsage(referral.referralCode, referrerPoints);
+      }
+      
+      res.json({ success: true, referrerPoints, referredPoints });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Accounting: Shipping Rates
   app.get("/api/accounting/shipping-rates", async (req, res) => {
     try {

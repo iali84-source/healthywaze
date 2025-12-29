@@ -15,6 +15,7 @@ import OrderConfirmation from "@/pages/OrderConfirmation";
 import TrackOrder from "@/pages/TrackOrder";
 import CustomerDashboard from "@/pages/CustomerDashboard";
 import LoyaltyDashboard from "@/pages/LoyaltyDashboard";
+import ReferralDashboard from "@/pages/ReferralDashboard";
 import Dashboard from "@/pages/admin/Dashboard";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
@@ -174,6 +175,7 @@ function App() {
             <Route path="/track-order" component={TrackOrder} />
             <ProtectedRoute path="/dashboard" component={CustomerDashboard} requireRole="customer" />
             <ProtectedRoute path="/loyalty" component={LoyaltyDashboard} requireRole="customer" />
+            <ProtectedRoute path="/referrals" component={ReferralDashboard} requireRole="customer" />
             
             {/* 404 */}
             <Route component={NotFound} />

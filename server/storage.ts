@@ -72,6 +72,10 @@ import {
   type InsertPostPurchaseSurvey,
   type MarketingCampaign,
   type InsertMarketingCampaign,
+  type Referral,
+  type InsertReferral,
+  type ReferralCode,
+  type InsertReferralCode,
   products,
   orders,
   orderItems,
@@ -108,6 +112,8 @@ import {
   customerMetrics,
   postPurchaseSurveys,
   marketingCampaigns,
+  referrals,
+  referralCodes,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -286,6 +292,15 @@ export interface IStorage {
   // Order Timeline
   getOrderTimeline(orderId: string): Promise<OrderTimelineEvent[]>;
   addOrderTimelineEvent(event: InsertOrderTimelineEvent): Promise<OrderTimelineEvent>;
+
+  // Referral Program
+  getReferralCode(userId: number): Promise<ReferralCode | undefined>;
+  createReferralCode(code: InsertReferralCode): Promise<ReferralCode>;
+  getReferralCodeByCode(code: string): Promise<ReferralCode | undefined>;
+  createReferral(referral: InsertReferral): Promise<Referral>;
+  getReferralsByReferrer(userId: number): Promise<Referral[]>;
+  updateReferralStatus(id: string, status: string, orderId?: string, referrerPoints?: number, referredPoints?: number): Promise<Referral | undefined>;
+  incrementReferralCodeUsage(code: string, points: number): Promise<void>;
 
   // Session Store
   sessionStore: session.Store;
@@ -1750,6 +1765,56 @@ export class DatabaseStorage implements IStorage {
       avgCpa: totalConversions > 0 ? totalSpend / totalConversions : 0,
       topCampaigns,
     };
+  }
+
+  // Referral Program
+  async getReferralCode(userId: number): Promise<ReferralCode | undefined> {
+    const [code] = await db.select().from(referralCodes).where(eq(referralCodes.userId, userId));
+    return code;
+  }
+
+  async createReferralCode(code: InsertReferralCode): Promise<ReferralCode> {
+    const [created] = await db.insert(referralCodes).values(code).returning();
+    return created;
+  }
+
+  async getReferralCodeByCode(code: string): Promise<ReferralCode | undefined> {
+    const [result] = await db.select().from(referralCodes).where(eq(referralCodes.code, code));
+    return result;
+  }
+
+  async createReferral(referral: InsertReferral): Promise<Referral> {
+    const [created] = await db.insert(referrals).values(referral).returning();
+    return created;
+  }
+
+  async getReferralsByReferrer(userId: number): Promise<Referral[]> {
+    return db.select().from(referrals).where(eq(referrals.referrerId, userId)).orderBy(desc(referrals.createdAt));
+  }
+
+  async updateReferralStatus(id: string, status: string, orderId?: string, referrerPoints?: number, referredPoints?: number): Promise<Referral | undefined> {
+    const updates: any = { status };
+    if (orderId) {
+      updates.convertedOrderId = orderId;
+      updates.convertedAt = new Date();
+    }
+    if (referrerPoints !== undefined) {
+      updates.referrerRewardPoints = referrerPoints;
+    }
+    if (referredPoints !== undefined) {
+      updates.referredRewardPoints = referredPoints;
+    }
+    const [updated] = await db.update(referrals).set(updates).where(eq(referrals.id, id)).returning();
+    return updated;
+  }
+
+  async incrementReferralCodeUsage(code: string, points: number): Promise<void> {
+    await db.update(referralCodes)
+      .set({
+        timesUsed: sql`times_used + 1`,
+        totalPointsEarned: sql`total_points_earned + ${points}`,
+      })
+      .where(eq(referralCodes.code, code));
   }
 }
 
