@@ -3356,6 +3356,279 @@ Format as JSON with keys: subject, content (HTML formatted)`,
     }
   });
 
+  // ================== DRAFT ORDERS ==================
+
+  // Get all draft orders (Admin)
+  app.get("/api/admin/draft-orders", requireAdmin, async (req, res) => {
+    try {
+      const drafts = await storage.getDraftOrders();
+      res.json(drafts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single draft order (Admin)
+  app.get("/api/admin/draft-orders/:id", requireAdmin, async (req, res) => {
+    try {
+      const draft = await storage.getDraftOrder(req.params.id);
+      if (!draft) {
+        return res.status(404).json({ error: "Draft order not found" });
+      }
+      const items = await storage.getDraftOrderItems(req.params.id);
+      res.json({ draft, items });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create draft order (Admin)
+  app.post("/api/admin/draft-orders", requireAdmin, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const draft = await storage.createDraftOrder({
+        ...req.body,
+        createdBy: userId,
+      });
+      res.status(201).json(draft);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update draft order (Admin)
+  app.patch("/api/admin/draft-orders/:id", requireAdmin, async (req, res) => {
+    try {
+      const draft = await storage.updateDraftOrder(req.params.id, req.body);
+      if (!draft) {
+        return res.status(404).json({ error: "Draft order not found" });
+      }
+      res.json(draft);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete draft order (Admin)
+  app.delete("/api/admin/draft-orders/:id", requireAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteDraftOrder(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Draft order not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add item to draft order (Admin)
+  app.post("/api/admin/draft-orders/:id/items", requireAdmin, async (req, res) => {
+    try {
+      const item = await storage.addDraftOrderItem({
+        ...req.body,
+        draftOrderId: req.params.id,
+      });
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Remove item from draft order (Admin)
+  app.delete("/api/admin/draft-orders/:draftId/items/:itemId", requireAdmin, async (req, res) => {
+    try {
+      const success = await storage.removeDraftOrderItem(parseInt(req.params.itemId));
+      if (!success) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Convert draft to real order (Admin)
+  app.post("/api/admin/draft-orders/:id/convert", requireAdmin, async (req, res) => {
+    try {
+      const order = await storage.convertDraftToOrder(req.params.id);
+      if (!order) {
+        return res.status(404).json({ error: "Draft order not found" });
+      }
+      res.json({ order });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== GIFT CARDS ==================
+
+  // Get all gift cards (Admin)
+  app.get("/api/admin/gift-cards", requireAdmin, async (req, res) => {
+    try {
+      const cards = await storage.getGiftCards();
+      res.json(cards);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single gift card (Admin)
+  app.get("/api/admin/gift-cards/:id", requireAdmin, async (req, res) => {
+    try {
+      const card = await storage.getGiftCard(parseInt(req.params.id));
+      if (!card) {
+        return res.status(404).json({ error: "Gift card not found" });
+      }
+      const transactions = await storage.getGiftCardTransactions(card.id);
+      res.json({ card, transactions });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create gift card (Admin)
+  app.post("/api/admin/gift-cards", requireAdmin, async (req, res) => {
+    try {
+      const card = await storage.createGiftCard(req.body);
+      res.status(201).json(card);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update gift card (Admin)
+  app.patch("/api/admin/gift-cards/:id", requireAdmin, async (req, res) => {
+    try {
+      const card = await storage.updateGiftCard(parseInt(req.params.id), req.body);
+      if (!card) {
+        return res.status(404).json({ error: "Gift card not found" });
+      }
+      res.json(card);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Validate gift card at checkout (Public)
+  app.post("/api/gift-cards/validate", async (req, res) => {
+    try {
+      const { code } = req.body;
+      const card = await storage.getGiftCardByCode(code);
+      
+      if (!card) {
+        return res.status(404).json({ valid: false, error: "Gift card not found" });
+      }
+      
+      if (!card.isActive) {
+        return res.json({ valid: false, error: "Gift card is inactive" });
+      }
+      
+      if (card.expiresAt && new Date(card.expiresAt) < new Date()) {
+        return res.json({ valid: false, error: "Gift card has expired" });
+      }
+      
+      res.json({
+        valid: true,
+        balance: card.currentBalance,
+        code: card.code,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Apply gift card to order (checkout integration)
+  app.post("/api/gift-cards/redeem", async (req, res) => {
+    try {
+      const { code, amount, orderId } = req.body;
+      const transaction = await storage.useGiftCard(code, amount, orderId);
+      
+      if (!transaction) {
+        return res.status(400).json({ error: "Invalid gift card or insufficient balance" });
+      }
+      
+      res.json({ success: true, transaction });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== RETURNS/REFUNDS ==================
+
+  // Get all returns (Admin)
+  app.get("/api/admin/returns", requireAdmin, async (req, res) => {
+    try {
+      const allReturns = await storage.getReturns();
+      res.json(allReturns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single return (Admin)
+  app.get("/api/admin/returns/:id", requireAdmin, async (req, res) => {
+    try {
+      const ret = await storage.getReturn(parseInt(req.params.id));
+      if (!ret) {
+        return res.status(404).json({ error: "Return not found" });
+      }
+      res.json(ret);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create return request (Customer or Admin)
+  app.post("/api/returns", async (req, res) => {
+    try {
+      const ret = await storage.createReturn(req.body);
+      res.status(201).json(ret);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update return status (Admin)
+  app.patch("/api/admin/returns/:id", requireAdmin, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const ret = await storage.updateReturn(parseInt(req.params.id), {
+        ...req.body,
+        processedBy: userId,
+      });
+      if (!ret) {
+        return res.status(404).json({ error: "Return not found" });
+      }
+      res.json(ret);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Process return refund (Admin)
+  app.post("/api/admin/returns/:id/process", requireAdmin, async (req, res) => {
+    try {
+      const ret = await storage.processReturn(parseInt(req.params.id));
+      if (!ret) {
+        return res.status(404).json({ error: "Return not found" });
+      }
+      res.json({ success: true, return: ret });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get returns for specific order (Admin or order owner)
+  app.get("/api/orders/:orderId/returns", async (req, res) => {
+    try {
+      const orderReturns = await storage.getReturnsByOrder(req.params.orderId);
+      res.json(orderReturns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

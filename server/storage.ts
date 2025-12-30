@@ -76,6 +76,16 @@ import {
   type InsertReferral,
   type ReferralCode,
   type InsertReferralCode,
+  type DraftOrder,
+  type InsertDraftOrder,
+  type DraftOrderItem,
+  type InsertDraftOrderItem,
+  type GiftCard,
+  type InsertGiftCard,
+  type GiftCardTransaction,
+  type InsertGiftCardTransaction,
+  type Return,
+  type InsertReturn,
   products,
   orders,
   orderItems,
@@ -114,6 +124,11 @@ import {
   marketingCampaigns,
   referrals,
   referralCodes,
+  draftOrders,
+  draftOrderItems,
+  giftCards,
+  giftCardTransactions,
+  returns,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, gte, lte, ilike, inArray } from "drizzle-orm";
@@ -292,6 +307,35 @@ export interface IStorage {
   // Order Timeline
   getOrderTimeline(orderId: string): Promise<OrderTimelineEvent[]>;
   addOrderTimelineEvent(event: InsertOrderTimelineEvent): Promise<OrderTimelineEvent>;
+
+  // Draft Orders
+  getDraftOrders(): Promise<DraftOrder[]>;
+  getDraftOrder(id: string): Promise<DraftOrder | undefined>;
+  createDraftOrder(order: InsertDraftOrder): Promise<DraftOrder>;
+  updateDraftOrder(id: string, updates: Partial<InsertDraftOrder>): Promise<DraftOrder | undefined>;
+  deleteDraftOrder(id: string): Promise<boolean>;
+  getDraftOrderItems(draftOrderId: string): Promise<DraftOrderItem[]>;
+  addDraftOrderItem(item: InsertDraftOrderItem): Promise<DraftOrderItem>;
+  updateDraftOrderItem(id: number, updates: Partial<InsertDraftOrderItem>): Promise<DraftOrderItem | undefined>;
+  removeDraftOrderItem(id: number): Promise<boolean>;
+  convertDraftToOrder(draftOrderId: string): Promise<Order | undefined>;
+
+  // Gift Cards
+  getGiftCards(): Promise<GiftCard[]>;
+  getGiftCard(id: number): Promise<GiftCard | undefined>;
+  getGiftCardByCode(code: string): Promise<GiftCard | undefined>;
+  createGiftCard(card: InsertGiftCard): Promise<GiftCard>;
+  updateGiftCard(id: number, updates: Partial<InsertGiftCard>): Promise<GiftCard | undefined>;
+  useGiftCard(code: string, amount: number, orderId: string): Promise<GiftCardTransaction | undefined>;
+  getGiftCardTransactions(giftCardId: number): Promise<GiftCardTransaction[]>;
+
+  // Returns/Refunds
+  getReturns(): Promise<Return[]>;
+  getReturn(id: number): Promise<Return | undefined>;
+  getReturnsByOrder(orderId: string): Promise<Return[]>;
+  createReturn(ret: InsertReturn): Promise<Return>;
+  updateReturn(id: number, updates: Partial<InsertReturn>): Promise<Return | undefined>;
+  processReturn(id: number): Promise<Return | undefined>;
 
   // Referral Program
   getReferralCode(userId: number): Promise<ReferralCode | undefined>;
@@ -1815,6 +1859,208 @@ export class DatabaseStorage implements IStorage {
         totalPointsEarned: sql`total_points_earned + ${points}`,
       })
       .where(eq(referralCodes.code, code));
+  }
+
+  // Draft Orders
+  async getDraftOrders(): Promise<DraftOrder[]> {
+    return db.select().from(draftOrders).orderBy(desc(draftOrders.createdAt));
+  }
+
+  async getDraftOrder(id: string): Promise<DraftOrder | undefined> {
+    const [order] = await db.select().from(draftOrders).where(eq(draftOrders.id, id));
+    return order;
+  }
+
+  async createDraftOrder(order: InsertDraftOrder): Promise<DraftOrder> {
+    const [created] = await db.insert(draftOrders).values({
+      ...order,
+      id: crypto.randomUUID(),
+    }).returning();
+    return created;
+  }
+
+  async updateDraftOrder(id: string, updates: Partial<InsertDraftOrder>): Promise<DraftOrder | undefined> {
+    const [updated] = await db.update(draftOrders).set({
+      ...updates,
+      updatedAt: new Date(),
+    }).where(eq(draftOrders.id, id)).returning();
+    return updated;
+  }
+
+  async deleteDraftOrder(id: string): Promise<boolean> {
+    const result = await db.delete(draftOrders).where(eq(draftOrders.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getDraftOrderItems(draftOrderId: string): Promise<DraftOrderItem[]> {
+    return db.select().from(draftOrderItems).where(eq(draftOrderItems.draftOrderId, draftOrderId));
+  }
+
+  async addDraftOrderItem(item: InsertDraftOrderItem): Promise<DraftOrderItem> {
+    const [created] = await db.insert(draftOrderItems).values(item).returning();
+    return created;
+  }
+
+  async updateDraftOrderItem(id: number, updates: Partial<InsertDraftOrderItem>): Promise<DraftOrderItem | undefined> {
+    const [updated] = await db.update(draftOrderItems).set(updates).where(eq(draftOrderItems.id, id)).returning();
+    return updated;
+  }
+
+  async removeDraftOrderItem(id: number): Promise<boolean> {
+    const result = await db.delete(draftOrderItems).where(eq(draftOrderItems.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async convertDraftToOrder(draftOrderId: string): Promise<Order | undefined> {
+    const draftOrder = await this.getDraftOrder(draftOrderId);
+    if (!draftOrder) return undefined;
+
+    const draftItems = await this.getDraftOrderItems(draftOrderId);
+    
+    // Build shipping address from parts
+    const shippingAddress = [
+      draftOrder.shippingAddressLine1,
+      draftOrder.shippingAddressLine2,
+      draftOrder.shippingCity,
+      draftOrder.shippingState,
+      draftOrder.shippingZip,
+      draftOrder.shippingCountry
+    ].filter(Boolean).join(", ");
+
+    // Create the order
+    const order = await this.createOrder({
+      customerName: draftOrder.customerName || "Manual Order",
+      customerEmail: draftOrder.customerEmail || "",
+      shippingAddress: shippingAddress || "",
+      total: draftOrder.total,
+    });
+
+    // Add order items
+    for (const item of draftItems) {
+      if (item.productId) {
+        // Get product details
+        const product = await this.getProduct(item.productId);
+        await this.createOrderItem({
+          orderId: order.id,
+          productId: item.productId,
+          productName: product?.name || item.customTitle || "Unknown Product",
+          productPrice: item.unitPrice,
+          quantity: item.quantity,
+        });
+      }
+    }
+
+    // Mark draft as converted and link to order
+    await db.update(draftOrders).set({ 
+      status: "completed",
+      convertedOrderId: order.id,
+      updatedAt: new Date(),
+    }).where(eq(draftOrders.id, draftOrderId));
+
+    return order;
+  }
+
+  // Gift Cards
+  async getGiftCards(): Promise<GiftCard[]> {
+    return db.select().from(giftCards).orderBy(desc(giftCards.createdAt));
+  }
+
+  async getGiftCard(id: number): Promise<GiftCard | undefined> {
+    const [card] = await db.select().from(giftCards).where(eq(giftCards.id, id));
+    return card;
+  }
+
+  async getGiftCardByCode(code: string): Promise<GiftCard | undefined> {
+    const [card] = await db.select().from(giftCards).where(eq(giftCards.code, code));
+    return card;
+  }
+
+  async createGiftCard(card: InsertGiftCard): Promise<GiftCard> {
+    const code = card.code || `GC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const [created] = await db.insert(giftCards).values({
+      ...card,
+      code,
+      currentBalance: card.initialBalance,
+    }).returning();
+    return created;
+  }
+
+  async updateGiftCard(id: number, updates: Partial<InsertGiftCard>): Promise<GiftCard | undefined> {
+    const [updated] = await db.update(giftCards).set(updates).where(eq(giftCards.id, id)).returning();
+    return updated;
+  }
+
+  async useGiftCard(code: string, amount: number, orderId: string): Promise<GiftCardTransaction | undefined> {
+    const card = await this.getGiftCardByCode(code);
+    if (!card || !card.isActive || parseFloat(card.currentBalance) < amount) {
+      return undefined;
+    }
+
+    // Deduct from balance
+    const newBalance = (parseFloat(card.currentBalance) - amount).toFixed(2);
+    await db.update(giftCards).set({ 
+      currentBalance: newBalance,
+    }).where(eq(giftCards.id, card.id));
+
+    // Create transaction
+    const [transaction] = await db.insert(giftCardTransactions).values({
+      giftCardId: card.id,
+      orderId,
+      amount: amount.toFixed(2),
+      type: "redemption",
+      balanceAfter: newBalance,
+    }).returning();
+
+    return transaction;
+  }
+
+  async getGiftCardTransactions(giftCardId: number): Promise<GiftCardTransaction[]> {
+    return db.select().from(giftCardTransactions).where(eq(giftCardTransactions.giftCardId, giftCardId)).orderBy(desc(giftCardTransactions.createdAt));
+  }
+
+  // Returns/Refunds
+  async getReturns(): Promise<Return[]> {
+    return db.select().from(returns).orderBy(desc(returns.createdAt));
+  }
+
+  async getReturn(id: number): Promise<Return | undefined> {
+    const [ret] = await db.select().from(returns).where(eq(returns.id, id));
+    return ret;
+  }
+
+  async getReturnsByOrder(orderId: string): Promise<Return[]> {
+    return db.select().from(returns).where(eq(returns.orderId, orderId));
+  }
+
+  async createReturn(ret: InsertReturn): Promise<Return> {
+    const returnNumber = `RET-${Date.now().toString(36).toUpperCase()}`;
+    const [created] = await db.insert(returns).values({
+      ...ret,
+      returnNumber,
+    }).returning();
+    return created;
+  }
+
+  async updateReturn(id: number, updates: Partial<InsertReturn>): Promise<Return | undefined> {
+    const [updated] = await db.update(returns).set({
+      ...updates,
+      updatedAt: new Date(),
+    }).where(eq(returns.id, id)).returning();
+    return updated;
+  }
+
+  async processReturn(id: number): Promise<Return | undefined> {
+    const ret = await this.getReturn(id);
+    if (!ret) return undefined;
+
+    // Update return status to refunded
+    const [updated] = await db.update(returns).set({
+      status: "refunded",
+      processedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(returns.id, id)).returning();
+
+    return updated;
   }
 }
 
