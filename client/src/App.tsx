@@ -32,6 +32,9 @@ import DebugDashboard from "@/pages/admin/DebugDashboard";
 import Newsletter from "@/pages/admin/Newsletter";
 import BlogManager from "@/pages/admin/BlogManager";
 import MarketingROI from "@/pages/admin/MarketingROI";
+import DraftOrders from "@/pages/admin/DraftOrders";
+import GiftCards from "@/pages/admin/GiftCards";
+import Returns from "@/pages/admin/Returns";
 import AuthPage from "@/pages/AuthPage";
 import LogoShowcase from "@/pages/LogoShowcase";
 import Blog from "@/pages/Blog";
@@ -105,6 +108,9 @@ function AdminPageRouter() {
       <Route path="/admin/newsletter" component={Newsletter} />
       <Route path="/admin/blog" component={BlogManager} />
       <Route path="/admin/marketing" component={MarketingROI} />
+      <Route path="/admin/draft-orders" component={DraftOrders} />
+      <Route path="/admin/gift-cards" component={GiftCards} />
+      <Route path="/admin/returns" component={Returns} />
       <Route component={NotFound} />
     </Switch>
   );

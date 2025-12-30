@@ -8,7 +8,7 @@ import {
   Settings,
   TrendingUp,
 } from "lucide-react";
-import { Zap, Layers, BookMarked, Wrench, Mail, FileText, Target } from "lucide-react"
+import { Zap, Layers, BookMarked, Wrench, Mail, FileText, Target, FileEdit, Gift, RotateCcw } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -83,6 +83,21 @@ const adminItems = [
     title: "Marketing ROI",
     url: "/admin/marketing",
     icon: Target,
+  },
+  {
+    title: "Draft Orders",
+    url: "/admin/draft-orders",
+    icon: FileEdit,
+  },
+  {
+    title: "Gift Cards",
+    url: "/admin/gift-cards",
+    icon: Gift,
+  },
+  {
+    title: "Returns",
+    url: "/admin/returns",
+    icon: RotateCcw,
   },
   {
     title: "Site Settings",
