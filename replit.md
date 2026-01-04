@@ -105,11 +105,16 @@ Database tables: marketing_sessions, promo_codes, promo_code_usages, customer_me
 ### Pending Implementation
 - Fix login error handling
 - API endpoints to trigger loyalty points on order completion
-- Email sending integration (Resend/SendGrid API)
+- ~~Email sending integration (Resend/SendGrid API)~~ ✅ CONNECTED (Jan 4, 2026) - RESEND_API_KEY configured
 - Admin dashboard UI for loyalty tiers, email campaign builder, abandoned cart management
 - Customer-facing loyalty dashboard showing points balance, tier progress, transaction history
 - Abandoned cart recovery email triggers and conversion tracking
-- Custom email addresses (@healthywaze.com) - requires DNS MX record setup
+- Custom email addresses (@healthywaze.com) - requires domain verification in Resend dashboard
+
+### Email System (Connected Jan 4, 2026)
+- **Provider:** Resend API
+- **Templates:** Welcome, Order Confirmation, Abandoned Cart, Post-Purchase, Re-engagement
+- **Status:** API key connected. Domain verification required in Resend dashboard to send from @healthywaze.com
 
 ## External Dependencies
 
