@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Redirect } from "wouter";
+import { Redirect, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -151,6 +151,14 @@ export default function AuthPage() {
                       >
                         {loginMutation.isPending ? "Logging in..." : "Login"}
                       </Button>
+                      
+                      <div className="text-center">
+                        <Link href="/forgot-password">
+                          <span className="text-sm text-primary hover:underline cursor-pointer" data-testid="link-forgot-password">
+                            Forgot your password?
+                          </span>
+                        </Link>
+                      </div>
                     </form>
                   </Form>
                 </CardContent>
