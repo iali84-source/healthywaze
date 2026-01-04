@@ -113,8 +113,19 @@ Database tables: marketing_sessions, promo_codes, promo_code_usages, customer_me
 
 ### Email System (Connected Jan 4, 2026)
 - **Provider:** Resend API
-- **Templates:** Welcome, Order Confirmation, Abandoned Cart, Post-Purchase, Re-engagement
+- **Templates:** Welcome, Order Confirmation, Abandoned Cart, Post-Purchase, Re-engagement, Password Reset
 - **Status:** API key connected. Domain verification required in Resend dashboard to send from @healthywaze.com
+
+### SMS System (Connected Jan 4, 2026)
+- **Provider:** Twilio
+- **Credentials:** TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN stored as secrets
+- **Use Cases:** Order confirmations, shipping updates, promotional messages
+
+### Password Reset (Added Jan 4, 2026)
+- **Database:** password_reset_tokens table with token, expiration (1 hour), and used flag
+- **API:** /api/forgot-password and /api/reset-password endpoints
+- **Security:** Email enumeration prevention, token single-use enforcement, timing-safe password comparison
+- **Pages:** /forgot-password and /reset-password with validation
 
 ## External Dependencies
 
@@ -122,5 +133,5 @@ Database tables: marketing_sessions, promo_codes, promo_code_usages, customer_me
 -   **OpenAI GPT-5**: AI-powered content generation (product descriptions) and performance analysis.
 -   **Google Analytics 4**: Comprehensive tracking of user interactions and performance metrics.
 -   **PostgreSQL**: Primary database for permanent data storage, accessed via Drizzle ORM.
--   **Twilio** (optional): For SMS notifications.
--   **Resend or SendGrid** (optional): For email notifications.
+-   **Twilio**: SMS notifications (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN configured Jan 4, 2026)
+-   **Resend**: Email notifications (RESEND_API_KEY configured Jan 4, 2026)
