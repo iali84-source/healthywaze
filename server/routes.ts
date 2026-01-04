@@ -1384,6 +1384,119 @@ Only respond with the category name, nothing else.`,
     }
   });
 
+  // Get review statistics for a product (aggregated social proof)
+  app.get("/api/products/:productId/review-stats", async (req, res) => {
+    try {
+      const reviews = await storage.getProductReviews(req.params.productId);
+      
+      if (!reviews.length) {
+        return res.json({
+          totalReviews: 0,
+          averageRating: 0,
+          verifiedPurchases: 0,
+          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          recommendRate: 0,
+        });
+      }
+      
+      const totalReviews = reviews.length;
+      const averageRating = reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews;
+      const verifiedPurchases = reviews.filter(r => r.isVerified).length;
+      
+      const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      reviews.forEach(r => {
+        if (r.rating >= 1 && r.rating <= 5) {
+          ratingDistribution[r.rating as 1|2|3|4|5]++;
+        }
+      });
+      
+      const positiveReviews = reviews.filter(r => r.rating >= 4).length;
+      const recommendRate = Math.round((positiveReviews / totalReviews) * 100);
+      
+      res.json({
+        totalReviews,
+        averageRating: Math.round(averageRating * 10) / 10,
+        verifiedPurchases,
+        ratingDistribution,
+        recommendRate,
+        mostHelpful: reviews.sort((a, b) => b.helpfulCount - a.helpfulCount).slice(0, 3),
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get recent reviews across all products (social proof widget)
+  app.get("/api/reviews/recent", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const minRating = parseInt(req.query.minRating as string) || 4;
+      
+      // Get recent positive reviews from all products
+      const allProducts = await storage.getProducts();
+      const allReviews: any[] = [];
+      
+      for (const product of allProducts.slice(0, 20)) {
+        const reviews = await storage.getProductReviews(product.id);
+        reviews.forEach(r => {
+          if (r.rating >= minRating) {
+            allReviews.push({ ...r, productName: product.name, productImage: product.imageUrl });
+          }
+        });
+      }
+      
+      // Sort by date and return recent ones
+      const sortedReviews = allReviews
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, limit);
+      
+      res.json(sortedReviews);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: Get all reviews with filtering
+  app.get("/api/admin/reviews", requireAdmin, async (req, res) => {
+    try {
+      const status = req.query.status as string;
+      const minRating = parseInt(req.query.minRating as string) || 0;
+      
+      const allProducts = await storage.getProducts();
+      const allReviews: any[] = [];
+      
+      for (const product of allProducts) {
+        const reviews = await storage.getProductReviews(product.id);
+        reviews.forEach(r => {
+          if (r.rating >= minRating) {
+            allReviews.push({ ...r, productName: product.name });
+          }
+        });
+      }
+      
+      // Sort by date (newest first)
+      const sortedReviews = allReviews
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      res.json(sortedReviews);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: Delete a review
+  app.delete("/api/admin/reviews/:id", requireAdmin, async (req, res) => {
+    try {
+      const deleted = await storage.deleteReview(parseInt(req.params.id));
+      if (!deleted) {
+        return res.status(404).json({ message: "Review not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Stripe: Create payment intent (reference from blueprint:javascript_stripe)
   // SECURITY: Validates prices server-side to prevent client-side manipulation
   app.post("/api/create-payment-intent", async (req, res) => {
@@ -2017,6 +2130,304 @@ Only respond with the category name, nothing else.`,
 
       const rate = await storage.createShippingRate(req.body);
       res.json(rate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Calculate shipping rates for checkout
+  app.post("/api/shipping/calculate", async (req, res) => {
+    try {
+      const { weight, zipCode, country = "US" } = req.body;
+      
+      if (!weight || !zipCode) {
+        return res.status(400).json({ error: "Weight and zipCode are required" });
+      }
+      
+      // Get all active shipping rates
+      const allRates = await storage.getShippingRates();
+      
+      // Calculate shipping options based on weight and destination
+      const shippingOptions = allRates.map(rate => {
+        let calculatedPrice = parseFloat(rate.baseRate);
+        const weightNum = parseFloat(weight);
+        
+        // Add per-lb charge for weight over base
+        if (weightNum > 1) {
+          calculatedPrice += (weightNum - 1) * parseFloat(rate.perPoundRate);
+        }
+        
+        // Apply zone-based adjustments
+        const zipNum = parseInt(zipCode.substring(0, 3));
+        let zone = "local";
+        if (zipNum < 300 || zipNum > 600) {
+          zone = "regional";
+          calculatedPrice *= 1.2;
+        }
+        if (zipNum < 100 || zipNum > 900 || country !== "US") {
+          zone = "national";
+          calculatedPrice *= 1.5;
+        }
+        
+        return {
+          carrier: rate.carrier,
+          serviceName: rate.serviceName,
+          estimatedDays: `${rate.minDays}-${rate.maxDays} business days`,
+          price: Math.round(calculatedPrice * 100) / 100,
+          zone,
+        };
+      });
+      
+      res.json(shippingOptions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Track shipment by tracking number
+  app.get("/api/shipping/track/:trackingNumber", async (req, res) => {
+    try {
+      const { trackingNumber } = req.params;
+      
+      // Find order with this tracking number
+      const allOrders = await storage.getAllOrders();
+      const order = allOrders.find(o => o.trackingNumber === trackingNumber);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Tracking number not found" });
+      }
+      
+      // Simulate tracking events based on order status
+      const events: Array<{ date: string; status: string; location: string }> = [];
+      const createdDate = new Date(order.createdAt);
+      
+      events.push({
+        date: createdDate.toISOString(),
+        status: "Order Placed",
+        location: "Online",
+      });
+      
+      if (order.status !== "pending") {
+        const processedDate = new Date(createdDate);
+        processedDate.setHours(processedDate.getHours() + 4);
+        events.push({
+          date: processedDate.toISOString(),
+          status: "Order Processed",
+          location: "Fulfillment Center",
+        });
+      }
+      
+      if (order.status === "shipped" || order.status === "delivered") {
+        const shippedDate = new Date(createdDate);
+        shippedDate.setDate(shippedDate.getDate() + 1);
+        events.push({
+          date: shippedDate.toISOString(),
+          status: "Shipped",
+          location: "Distribution Center",
+        });
+        
+        events.push({
+          date: new Date(shippedDate.getTime() + 12 * 60 * 60 * 1000).toISOString(),
+          status: "In Transit",
+          location: "Regional Hub",
+        });
+      }
+      
+      if (order.status === "delivered") {
+        const deliveredDate = new Date(createdDate);
+        deliveredDate.setDate(deliveredDate.getDate() + 3);
+        events.push({
+          date: deliveredDate.toISOString(),
+          status: "Out for Delivery",
+          location: order.shippingCity || "Local Facility",
+        });
+        
+        events.push({
+          date: new Date(deliveredDate.getTime() + 6 * 60 * 60 * 1000).toISOString(),
+          status: "Delivered",
+          location: order.shippingCity || "Destination",
+        });
+      }
+      
+      res.json({
+        trackingNumber,
+        carrier: order.shippingProvider || "Standard Carrier",
+        status: order.status,
+        estimatedDelivery: order.status !== "delivered" 
+          ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() 
+          : null,
+        events: events.reverse(),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update order with tracking information (Admin)
+  app.patch("/api/orders/:orderId/shipping", requireAdmin, async (req, res) => {
+    try {
+      const { trackingNumber, shippingProvider, status } = req.body;
+      const orderId = req.params.orderId;
+      
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Update order with shipping info
+      const updates: any = {};
+      if (trackingNumber) updates.trackingNumber = trackingNumber;
+      if (shippingProvider) updates.shippingProvider = shippingProvider;
+      if (status) updates.status = status;
+      
+      const updatedOrder = await storage.updateOrder(orderId, updates);
+      
+      res.json(updatedOrder);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== TAX CALCULATION ==================
+
+  // Get all tax rates (Admin)
+  app.get("/api/tax/rates", requireAdmin, async (req, res) => {
+    try {
+      const rates = await storage.getTaxRates();
+      res.json(rates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get tax rate by state
+  app.get("/api/tax/rates/:stateCode", async (req, res) => {
+    try {
+      const rate = await storage.getTaxRateByState(req.params.stateCode);
+      if (!rate) {
+        return res.json({ stateCode: req.params.stateCode, combinedRate: "0", message: "No tax configured for this state" });
+      }
+      res.json(rate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create or update tax rate (Admin)
+  app.post("/api/tax/rates", requireAdmin, async (req, res) => {
+    try {
+      const rate = await storage.createTaxRate(req.body);
+      res.status(201).json(rate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Calculate tax for checkout
+  app.post("/api/tax/calculate", async (req, res) => {
+    try {
+      const { subtotal, stateCode, city, zip } = req.body;
+      
+      if (!subtotal || !stateCode) {
+        return res.status(400).json({ error: "Subtotal and stateCode are required" });
+      }
+      
+      // Get tax rate for state
+      let taxRate = await storage.getTaxRateByState(stateCode);
+      
+      // If no specific tax rate, check for default US states with sales tax
+      if (!taxRate) {
+        // Default US state tax rates (simplified)
+        const defaultRates: Record<string, number> = {
+          "CA": 0.0725, "NY": 0.08, "TX": 0.0625, "FL": 0.06, "IL": 0.0625,
+          "PA": 0.06, "OH": 0.0575, "GA": 0.04, "NC": 0.0475, "MI": 0.06,
+          "NJ": 0.0663, "VA": 0.053, "WA": 0.065, "AZ": 0.056, "MA": 0.0625,
+          "TN": 0.07, "IN": 0.07, "MN": 0.06875, "WI": 0.05, "CO": 0.029,
+          // No sales tax states
+          "OR": 0, "MT": 0, "NH": 0, "DE": 0, "AK": 0,
+        };
+        
+        const rate = defaultRates[stateCode.toUpperCase()] || 0;
+        const taxAmount = parseFloat(subtotal) * rate;
+        
+        return res.json({
+          stateCode: stateCode.toUpperCase(),
+          taxRate: rate,
+          taxRatePercent: `${(rate * 100).toFixed(2)}%`,
+          subtotal: parseFloat(subtotal),
+          taxAmount: Math.round(taxAmount * 100) / 100,
+          total: Math.round((parseFloat(subtotal) + taxAmount) * 100) / 100,
+          isEstimate: true,
+          breakdown: {
+            stateRate: rate,
+            countyRate: 0,
+            cityRate: 0,
+            specialRate: 0,
+          },
+        });
+      }
+      
+      // Calculate tax with stored rates
+      const combinedRate = parseFloat(taxRate.combinedRate);
+      const taxAmount = parseFloat(subtotal) * combinedRate;
+      
+      res.json({
+        stateCode: taxRate.stateCode,
+        stateName: taxRate.stateName,
+        taxRate: combinedRate,
+        taxRatePercent: `${(combinedRate * 100).toFixed(2)}%`,
+        subtotal: parseFloat(subtotal),
+        taxAmount: Math.round(taxAmount * 100) / 100,
+        total: Math.round((parseFloat(subtotal) + taxAmount) * 100) / 100,
+        isEstimate: false,
+        breakdown: {
+          stateRate: parseFloat(taxRate.stateRate),
+          countyRate: parseFloat(taxRate.countyRate),
+          cityRate: parseFloat(taxRate.cityRate),
+          specialRate: parseFloat(taxRate.specialRate),
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Seed default US state tax rates (Admin utility endpoint)
+  app.post("/api/tax/seed-defaults", requireAdmin, async (req, res) => {
+    try {
+      const defaultStates = [
+        { stateCode: "CA", stateName: "California", stateRate: "0.0725", combinedRate: "0.0725" },
+        { stateCode: "NY", stateName: "New York", stateRate: "0.08", combinedRate: "0.08" },
+        { stateCode: "TX", stateName: "Texas", stateRate: "0.0625", combinedRate: "0.0625" },
+        { stateCode: "FL", stateName: "Florida", stateRate: "0.06", combinedRate: "0.06" },
+        { stateCode: "IL", stateName: "Illinois", stateRate: "0.0625", combinedRate: "0.0625" },
+        { stateCode: "PA", stateName: "Pennsylvania", stateRate: "0.06", combinedRate: "0.06" },
+        { stateCode: "OH", stateName: "Ohio", stateRate: "0.0575", combinedRate: "0.0575" },
+        { stateCode: "GA", stateName: "Georgia", stateRate: "0.04", combinedRate: "0.04" },
+        { stateCode: "NC", stateName: "North Carolina", stateRate: "0.0475", combinedRate: "0.0475" },
+        { stateCode: "MI", stateName: "Michigan", stateRate: "0.06", combinedRate: "0.06" },
+        { stateCode: "OR", stateName: "Oregon", stateRate: "0", combinedRate: "0" },
+        { stateCode: "MT", stateName: "Montana", stateRate: "0", combinedRate: "0" },
+        { stateCode: "NH", stateName: "New Hampshire", stateRate: "0", combinedRate: "0" },
+        { stateCode: "DE", stateName: "Delaware", stateRate: "0", combinedRate: "0" },
+        { stateCode: "AK", stateName: "Alaska", stateRate: "0", combinedRate: "0" },
+      ];
+      
+      const created = [];
+      for (const state of defaultStates) {
+        const existing = await storage.getTaxRateByState(state.stateCode);
+        if (!existing) {
+          const rate = await storage.createTaxRate({
+            ...state,
+            countyRate: "0",
+            cityRate: "0",
+            specialRate: "0",
+          } as any);
+          created.push(rate);
+        }
+      }
+      
+      res.json({ success: true, created: created.length, message: `Seeded ${created.length} state tax rates` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
