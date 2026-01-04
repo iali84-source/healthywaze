@@ -210,7 +210,7 @@ export default function LoyaltyProgram() {
                     <div key={sequence.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`email-sequence-${sequence.id}`}>
                       <div>
                         <p className="font-medium">{sequence.name}</p>
-                        <p className="text-sm text-muted-foreground capitalize">{sequence.type.replace('_', ' ')}</p>
+                        <p className="text-sm text-muted-foreground capitalize">{sequence.automationType.replace('_', ' ')}</p>
                       </div>
                       <Badge variant={sequence.isActive ? "default" : "secondary"}>
                         {sequence.isActive ? "Active" : "Inactive"}

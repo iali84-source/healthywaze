@@ -217,6 +217,23 @@ export const abandonedCarts = pgTable("abandoned_carts", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Tax Rates - State/Region based tax calculation
+export const taxRates = pgTable("tax_rates", {
+  id: serial("id").primaryKey(),
+  stateCode: text("state_code").notNull(), // e.g., "CA", "NY", "TX"
+  stateName: text("state_name").notNull(),
+  countyName: text("county_name"), // Optional county-level tax
+  cityName: text("city_name"), // Optional city-level tax
+  stateRate: decimal("state_rate", { precision: 5, scale: 4 }).notNull().default("0"), // e.g., 0.0725 = 7.25%
+  countyRate: decimal("county_rate", { precision: 5, scale: 4 }).notNull().default("0"),
+  cityRate: decimal("city_rate", { precision: 5, scale: 4 }).notNull().default("0"),
+  specialRate: decimal("special_rate", { precision: 5, scale: 4 }).notNull().default("0"),
+  combinedRate: decimal("combined_rate", { precision: 5, scale: 4 }).notNull(), // Total of all rates
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 // Accounting & Financial System
 export const shippingRates = pgTable("shipping_rates", {
   id: serial("id").primaryKey(),
@@ -399,6 +416,12 @@ export const insertAbandonedCartSchema = createInsertSchema(abandonedCarts).omit
   updatedAt: true,
 });
 
+export const insertTaxRateSchema = createInsertSchema(taxRates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertShippingRateSchema = createInsertSchema(shippingRates).omit({
   id: true,
   createdAt: true,
@@ -446,6 +469,8 @@ export type InsertCustomerEmailEvent = z.infer<typeof insertCustomerEmailEventSc
 export type CustomerEmailEvent = typeof customerEmailEvents.$inferSelect;
 export type InsertAbandonedCart = z.infer<typeof insertAbandonedCartSchema>;
 export type AbandonedCart = typeof abandonedCarts.$inferSelect;
+export type InsertTaxRate = z.infer<typeof insertTaxRateSchema>;
+export type TaxRate = typeof taxRates.$inferSelect;
 export type InsertShippingRate = z.infer<typeof insertShippingRateSchema>;
 export type ShippingRate = typeof shippingRates.$inferSelect;
 export type InsertDiscountCode = z.infer<typeof insertDiscountCodeSchema>;

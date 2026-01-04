@@ -26,6 +26,8 @@ import {
   type InsertCustomerEmailEvent,
   type AbandonedCart,
   type InsertAbandonedCart,
+  type TaxRate,
+  type InsertTaxRate,
   type ShippingRate,
   type InsertShippingRate,
   type DiscountCode,
@@ -101,6 +103,7 @@ import {
   emailTemplates,
   customerEmailEvents,
   abandonedCarts,
+  taxRates,
   shippingRates,
   discountCodes,
   promotionCampaigns,
@@ -203,6 +206,7 @@ export interface IStorage {
   getUserProductReview(productId: string, userId: number): Promise<Review | undefined>;
   createReview(review: InsertReview): Promise<Review>;
   incrementHelpfulCount(reviewId: number): Promise<void>;
+  deleteReview(reviewId: number): Promise<boolean>;
   hasUserPurchasedProduct(productId: string, userId: number): Promise<boolean>;
 
   // Loyalty Program
@@ -232,6 +236,12 @@ export interface IStorage {
   getAbandonedCartByCode(code: string): Promise<AbandonedCart | undefined>;
   updateAbandonedCartStatus(id: number, status: string): Promise<AbandonedCart | undefined>;
   markCartRecovered(cartId: number, orderId: string): Promise<AbandonedCart | undefined>;
+
+  // Tax Rates
+  getTaxRates(): Promise<TaxRate[]>;
+  getTaxRateByState(stateCode: string): Promise<TaxRate | undefined>;
+  createTaxRate(rate: InsertTaxRate): Promise<TaxRate>;
+  updateTaxRate(id: number, updates: Partial<InsertTaxRate>): Promise<TaxRate | undefined>;
 
   // Accounting & Financial
   getShippingRates(carrier?: string): Promise<any[]>;
@@ -758,6 +768,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(reviews.id, reviewId));
   }
 
+  async deleteReview(reviewId: number): Promise<boolean> {
+    const existing = await db.select().from(reviews).where(eq(reviews.id, reviewId)).limit(1);
+    if (!existing.length) {
+      return false;
+    }
+    await db.delete(reviews).where(eq(reviews.id, reviewId));
+    return true;
+  }
+
   async hasUserPurchasedProduct(productId: string, userId: number): Promise<boolean> {
     const [result] = await db
       .select({ count: sql<number>`count(*)` })
@@ -974,6 +993,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(abandonedCarts.id, cartId))
       .returning();
     return cart || undefined;
+  }
+
+  // Tax Rates
+  async getTaxRates(): Promise<TaxRate[]> {
+    return db.select().from(taxRates).where(eq(taxRates.isActive, true));
+  }
+
+  async getTaxRateByState(stateCode: string): Promise<TaxRate | undefined> {
+    const [rate] = await db
+      .select()
+      .from(taxRates)
+      .where(and(eq(taxRates.stateCode, stateCode.toUpperCase()), eq(taxRates.isActive, true)));
+    return rate || undefined;
+  }
+
+  async createTaxRate(rate: InsertTaxRate): Promise<TaxRate> {
+    const [created] = await db.insert(taxRates).values(rate).returning();
+    return created;
+  }
+
+  async updateTaxRate(id: number, updates: Partial<InsertTaxRate>): Promise<TaxRate | undefined> {
+    const [updated] = await db
+      .update(taxRates)
+      .set({ ...updates, updatedAt: sql`now()` })
+      .where(eq(taxRates.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   // Accounting: Shipping Rates
