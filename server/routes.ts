@@ -8,7 +8,10 @@ import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { setupAuth, requireAuth, requireAdmin } from "./auth";
-import { sendOrderConfirmation, sendWelcomeEmail } from "./email";
+import { sendOrderConfirmation, sendWelcomeEmail, sendAbandonedCartEmail } from "./email";
+import { db } from "./db";
+import { loyaltyAccounts, loyaltyTransactions, abandonedCarts } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 // Reference for Stripe integration from blueprint:javascript_stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -3624,6 +3627,200 @@ Format as JSON with keys: subject, content (HTML formatted)`,
     try {
       const orderReturns = await storage.getReturnsByOrder(req.params.orderId);
       res.json(orderReturns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== LOYALTY PROGRAM ADMIN ==================
+
+  // Get loyalty program statistics (Admin)
+  app.get("/api/admin/loyalty-stats", requireAdmin, async (req, res) => {
+    try {
+      // Get all loyalty accounts
+      const accounts = await db.select().from(loyaltyAccounts);
+      
+      // Get all loyalty transactions
+      const transactions = await db.select().from(loyaltyTransactions);
+      
+      // Calculate stats
+      const totalMembers = accounts.length;
+      const totalPointsIssued = transactions
+        .filter(t => t.type !== 'redemption')
+        .reduce((sum, t) => sum + (t.pointsEarned || 0), 0);
+      const totalPointsRedeemed = transactions
+        .filter(t => t.type === 'redemption')
+        .reduce((sum, t) => sum + (t.pointsRedeemed || 0), 0);
+      const averagePointsPerCustomer = totalMembers > 0 
+        ? Math.round(totalPointsIssued / totalMembers) 
+        : 0;
+      
+      // Tier distribution
+      const tierDistribution = {
+        bronze: accounts.filter(a => a.tier === 'bronze').length,
+        silver: accounts.filter(a => a.tier === 'silver').length,
+        gold: accounts.filter(a => a.tier === 'gold').length,
+        platinum: accounts.filter(a => a.tier === 'platinum').length,
+      };
+      
+      // Monthly revenue from loyalty members (approximate based on purchase points)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const recentPurchasePoints = transactions
+        .filter(t => t.type === 'purchase' && new Date(t.createdAt!) > thirtyDaysAgo)
+        .reduce((sum, t) => sum + (t.pointsEarned || 0), 0);
+      const monthlyRevenue = recentPurchasePoints; // 1 point = $1 spent
+      
+      res.json({
+        totalMembers,
+        totalPointsIssued,
+        totalPointsRedeemed,
+        averagePointsPerCustomer,
+        tierDistribution,
+        monthlyRevenue,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== EMAIL SEQUENCES ADMIN ==================
+
+  // Get all email sequences (Admin)
+  app.get("/api/admin/email-sequences", requireAdmin, async (req, res) => {
+    try {
+      const sequences = await storage.getEmailSequences();
+      res.json(sequences);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create email sequence (Admin)
+  app.post("/api/admin/email-sequences", requireAdmin, async (req, res) => {
+    try {
+      const sequence = await storage.createEmailSequence(req.body);
+      res.status(201).json(sequence);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update email sequence (Admin)
+  app.patch("/api/admin/email-sequences/:id", requireAdmin, async (req, res) => {
+    try {
+      const sequence = await storage.updateEmailSequence(parseInt(req.params.id), req.body);
+      if (!sequence) {
+        return res.status(404).json({ error: "Email sequence not found" });
+      }
+      res.json(sequence);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get email templates for a sequence (Admin)
+  app.get("/api/admin/email-sequences/:id/templates", requireAdmin, async (req, res) => {
+    try {
+      const templates = await storage.getEmailTemplates(parseInt(req.params.id));
+      res.json(templates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create email template (Admin)
+  app.post("/api/admin/email-templates", requireAdmin, async (req, res) => {
+    try {
+      const template = await storage.createEmailTemplate(req.body);
+      res.status(201).json(template);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update email template (Admin)
+  app.patch("/api/admin/email-templates/:id", requireAdmin, async (req, res) => {
+    try {
+      const template = await storage.updateEmailTemplate(parseInt(req.params.id), req.body);
+      if (!template) {
+        return res.status(404).json({ error: "Email template not found" });
+      }
+      res.json(template);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ================== ABANDONED CARTS ADMIN ==================
+
+  // Get all abandoned carts (Admin)
+  app.get("/api/admin/abandoned-carts", requireAdmin, async (req, res) => {
+    try {
+      const carts = await storage.getAbandonedCarts();
+      res.json(carts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get abandoned cart by recovery code
+  app.get("/api/cart/recover/:code", async (req, res) => {
+    try {
+      const cart = await storage.getAbandonedCartByCode(req.params.code);
+      if (!cart) {
+        return res.status(404).json({ error: "Cart not found or already recovered" });
+      }
+      res.json(cart);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Trigger abandoned cart recovery email (Admin)
+  app.post("/api/admin/abandoned-carts/:id/send-recovery", requireAdmin, async (req, res) => {
+    try {
+      const cart = await db.select().from(abandonedCarts).where(eq(abandonedCarts.id, parseInt(req.params.id))).limit(1);
+      if (!cart.length) {
+        return res.status(404).json({ error: "Abandoned cart not found" });
+      }
+      
+      const abandonedCart = cart[0];
+      if (!abandonedCart.customerEmail) {
+        return res.status(400).json({ error: "No email address for this cart" });
+      }
+      
+      // Send recovery email
+      await sendAbandonedCartEmail(
+        abandonedCart.customerEmail, 
+        "Customer", 
+        abandonedCart.recoveryCode, 
+        abandonedCart.cartTotal
+      );
+      
+      // Update reminder sent timestamp
+      await storage.updateAbandonedCartStatus(parseInt(req.params.id), 'reminder_sent');
+      
+      res.json({ success: true, message: "Recovery email sent" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark abandoned cart as recovered (for cart recovery page)
+  app.post("/api/cart/recover/:code/restore", async (req, res) => {
+    try {
+      const cart = await storage.getAbandonedCartByCode(req.params.code);
+      if (!cart) {
+        return res.status(404).json({ error: "Cart not found or already recovered" });
+      }
+      
+      // Return cart items so frontend can restore them
+      res.json({ 
+        success: true, 
+        cartItems: JSON.parse(cart.cartItems || '[]'),
+        cartTotal: cart.cartTotal 
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
