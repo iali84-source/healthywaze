@@ -2,13 +2,44 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    let errorMessage = `${res.status}: ${res.statusText}`;
-    try {
-      const errorData = await res.json();
-      errorMessage = errorData.message || errorData.error || errorMessage;
-    } catch (e) {
-      // Use default error message if response is not JSON
+    let errorMessage: string;
+    
+    // Provide user-friendly messages for common HTTP errors
+    switch (res.status) {
+      case 400:
+        errorMessage = "Please check your input and try again.";
+        break;
+      case 401:
+        errorMessage = "Invalid username or password.";
+        break;
+      case 403:
+        errorMessage = "You don't have permission to do this.";
+        break;
+      case 404:
+        errorMessage = "The requested resource was not found.";
+        break;
+      case 500:
+        errorMessage = "Something went wrong on our end. Please try again.";
+        break;
+      default:
+        errorMessage = `Error: ${res.statusText || 'Unknown error'}`;
     }
+    
+    // Try to get more specific error message from response body
+    try {
+      const text = await res.text();
+      if (text) {
+        const errorData = JSON.parse(text);
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      }
+    } catch (e) {
+      // Keep the default user-friendly message
+    }
+    
     throw new Error(errorMessage);
   }
 }
