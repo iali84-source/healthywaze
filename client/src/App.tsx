@@ -36,6 +36,8 @@ import DraftOrders from "@/pages/admin/DraftOrders";
 import GiftCards from "@/pages/admin/GiftCards";
 import Returns from "@/pages/admin/Returns";
 import AuthPage from "@/pages/AuthPage";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import LogoShowcase from "@/pages/LogoShowcase";
 import Blog from "@/pages/Blog";
 import Legal from "@/pages/Legal";
@@ -138,8 +140,10 @@ function App() {
         <CartProvider>
           <TooltipProvider>
             <Switch>
-            {/* Auth route */}
+            {/* Auth routes */}
             <Route path="/auth" component={AuthPage} />
+            <Route path="/forgot-password" component={ForgotPassword} />
+            <Route path="/reset-password" component={ResetPassword} />
             
             {/* Admin routes - match any /admin path */}
             <Route path="/admin" component={AdminPage} />

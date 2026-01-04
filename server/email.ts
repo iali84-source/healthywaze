@@ -271,3 +271,41 @@ export async function sendReEngagementEmail(to: string, customerName: string): P
   const template = getReEngagementTemplate(customerName);
   return sendEmail({ to, ...template });
 }
+
+export function getPasswordResetTemplate(resetLink: string): EmailTemplate {
+  return {
+    subject: "Reset Your HealthyWaze Password",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head><style>${baseStyles}</style></head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Password Reset Request</h1>
+          </div>
+          <div class="content">
+            <p>Hi there,</p>
+            <p>We received a request to reset your password for your HealthyWaze account.</p>
+            <p>Click the button below to create a new password:</p>
+            <a href="${resetLink}" class="button">Reset Password</a>
+            <div style="background: #fff3cd; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #ffc107;">
+              <p style="margin: 0; font-size: 14px;"><strong>This link expires in 1 hour.</strong></p>
+            </div>
+            <p style="font-size: 14px; color: #666;">If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+            <p>Stay well,<br><strong>The HealthyWaze Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>HealthyWaze - Trusted Wellness for Your Family</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+}
+
+export async function sendPasswordResetEmail(to: string, resetLink: string): Promise<boolean> {
+  const template = getPasswordResetTemplate(resetLink);
+  return sendEmail({ to, ...template });
+}
